@@ -696,3 +696,12 @@ Before submitting tests:
 8. **Speed and isolation over purity** - pragmatic choices for fast feedback
 9. **Customer-facing tests are usually not worth it** - focus on developer tests
 10. **Keep tests maintainable** - they should enable change, not prevent it
+
+## Git Pre-Commit Hook Support
+
+The project's pre-commit hook intelligently supports this methodology:
+- **Documentation commits**: Skip tests for docs-only changes
+- **Red phase**: Allow failing tests when committing test files only
+- **Green phase**: Require passing tests when committing implementation
+- **Refactoring**: Detect and praise when only implementation changes (tests stable)
+- **Configuration changes**: Allow commits with warnings for tooling updates
