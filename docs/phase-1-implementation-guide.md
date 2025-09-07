@@ -148,16 +148,14 @@ src/
 │   └── composition/       # Dependency injection
 │       └── CompositionRoot.ts
 │
-├── shared/                # Shared utilities
-│   └── test-helpers/      # Test utilities
-│       ├── MockFileSystem.ts
-│       ├── TestDataBuilder.ts
-│       └── InMemoryNoteRepository.ts
-│
 └── index.ts               # Entry point - wires everything
 
-test/                      # Integration tests only
-└── integration/
+test/                      # Test-specific code
+├── helpers/               # Shared test utilities
+│   ├── MockFileSystem.ts
+│   ├── TestDataBuilder.ts
+│   └── InMemoryNoteRepository.ts
+└── integration/           # Integration tests
     ├── mcp-protocol.integration.test.ts
     ├── file-watching.integration.test.ts
     └── vault-operations.integration.test.ts
@@ -183,8 +181,7 @@ mkdir -p src/application/ports/{primary,secondary}
 mkdir -p src/application/use-cases
 mkdir -p src/infrastructure/adapters/{primary,secondary}
 mkdir -p src/infrastructure/{config,composition}
-mkdir -p src/shared/test-helpers
-mkdir -p test/integration  # Only integration tests go here
+mkdir -p test/{helpers,integration}
 
 # Install dependencies
 bun add @modelcontextprotocol/sdk gray-matter chokidar

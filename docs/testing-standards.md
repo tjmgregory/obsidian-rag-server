@@ -75,21 +75,21 @@ src/
 │   └── use-cases/
 │       ├── SearchVaultUseCaseImpl.ts
 │       └── SearchVaultUseCaseImpl.test.ts  # Co-located use case test
-├── infrastructure/
-│   └── adapters/
-│       ├── primary/
-│       │   ├── MCPServerAdapter.ts
-│       │   └── MCPServerAdapter.test.ts    # Co-located adapter test
-│       └── secondary/
-│           ├── FileNoteRepository.ts
-│           └── FileNoteRepository.test.ts  # Co-located repository test
-└── shared/
-    └── test-helpers/           # Shared test utilities
-        ├── MockFileSystem.ts   # Reusable mock implementations
-        └── TestDataBuilder.ts  # Test data factories
+└── infrastructure/
+    └── adapters/
+        ├── primary/
+        │   ├── MCPServerAdapter.ts
+        │   └── MCPServerAdapter.test.ts    # Co-located adapter test
+        └── secondary/
+            ├── FileNoteRepository.ts
+            └── FileNoteRepository.test.ts  # Co-located repository test
 
-test/                           # Separate folder for integration tests only
-└── integration/
+test/                           # Test-specific code
+├── helpers/                    # Shared test utilities
+│   ├── MockFileSystem.ts      # Reusable mock implementations
+│   ├── TestDataBuilder.ts     # Test data factories
+│   └── InMemoryRepository.ts  # Test doubles
+└── integration/                # Integration tests
     ├── mcp-protocol.integration.test.ts
     ├── file-system.integration.test.ts
     └── end-to-end.integration.test.ts
