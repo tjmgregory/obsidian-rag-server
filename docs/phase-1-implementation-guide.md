@@ -212,7 +212,7 @@ Following hexagonal architecture, we start with pure domain entities that have n
 
 #### Domain Entities
 
-Create `src/domain/entities/Note.ts`:
+Create `src/domain/entities/note.ts`:
 ```typescript
 // Pure domain entity - no infrastructure concerns
 export class Note {
@@ -239,9 +239,9 @@ export class Note {
 }
 ```
 
-Create `src/domain/entities/SearchResult.ts`:
+Create `src/domain/entities/search-result.ts`:
 ```typescript
-import { Note } from './Note';
+import { Note } from './note';
 
 export class SearchResult {
   constructor(
@@ -269,10 +269,10 @@ export class SearchResult {
 
 #### Domain Services
 
-Create `src/domain/services/NoteSearcher.ts`:
+Create `src/domain/services/note-searcher.ts`:
 ```typescript
-import { Note } from '../entities/Note';
-import { SearchResult } from '../entities/SearchResult';
+import { Note } from '../entities/note';
+import { SearchResult } from '../entities/search-result';
 
 // Pure domain service - no I/O, just business logic
 export class NoteSearcher {

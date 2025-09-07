@@ -64,31 +64,31 @@ This three-step cycle is the foundation of effective TDD:
 src/
 ├── domain/
 │   ├── entities/
-│   │   ├── Note.ts
-│   │   ├── Note.test.ts              # Co-located domain test
-│   │   ├── SearchResult.ts
-│   │   └── SearchResult.test.ts      # Co-located domain test
+│   │   ├── note.ts
+│   │   ├── note.test.ts                    # Co-located domain test
+│   │   ├── search-result.ts
+│   │   └── search-result.test.ts           # Co-located domain test
 │   └── services/
-│       ├── NoteSearcher.ts
-│       └── NoteSearcher.test.ts      # Co-located service test
+│       ├── note-searcher.ts
+│       └── note-searcher.test.ts           # Co-located service test
 ├── application/
 │   └── use-cases/
-│       ├── SearchVaultUseCaseImpl.ts
-│       └── SearchVaultUseCaseImpl.test.ts  # Co-located use case test
+│       ├── search-vault-use-case-impl.ts
+│       └── search-vault-use-case-impl.test.ts  # Co-located use case test
 └── infrastructure/
     └── adapters/
         ├── primary/
-        │   ├── MCPServerAdapter.ts
-        │   └── MCPServerAdapter.test.ts    # Co-located adapter test
+        │   ├── mcp-server-adapter.ts
+        │   └── mcp-server-adapter.test.ts  # Co-located adapter test
         └── secondary/
-            ├── FileNoteRepository.ts
-            └── FileNoteRepository.test.ts  # Co-located repository test
+            ├── file-note-repository.ts
+            └── file-note-repository.test.ts  # Co-located repository test
 
 test/                           # Test-specific code
 ├── helpers/                    # Shared test utilities
-│   ├── MockFileSystem.ts      # Reusable mock implementations
-│   ├── TestDataBuilder.ts     # Test data factories
-│   └── InMemoryRepository.ts  # Test doubles
+│   ├── mock-file-system.ts    # Reusable mock implementations
+│   ├── test-data-builder.ts   # Test data factories
+│   └── in-memory-repository.ts # Test doubles
 └── integration/                # Integration tests
     ├── mcp-protocol.integration.test.ts
     ├── file-system.integration.test.ts
@@ -105,9 +105,19 @@ test/                           # Test-specific code
 
 ### Test File Naming Conventions
 
-- **Unit/Behavior Tests**: `[name].test.ts` (co-located)
-- **Integration Tests**: `[feature].integration.test.ts` (in test/ folder)
-- **End-to-End Tests**: `[scenario].e2e.test.ts` (in test/ folder)
+**All test files must use kebab-case**:
+
+- **Unit/Behavior Tests**: `[kebab-name].test.ts` (co-located)
+- **Integration Tests**: `[kebab-feature].integration.test.ts` (in test/ folder)
+- **End-to-End Tests**: `[kebab-scenario].e2e.test.ts` (in test/ folder)
+
+Examples:
+```
+note-searcher.test.ts              # Unit test
+search-vault-use-case.test.ts      # Use case test
+mcp-protocol.integration.test.ts   # Integration test
+full-search-flow.e2e.test.ts       # End-to-end test
+```
 
 ### When to Separate Tests
 
@@ -143,14 +153,14 @@ If you have existing tests in a separate `test/` directory, migrate them gradual
 
 Example migration:
 ```bash
-# Move a domain test
-mv test/services/NoteSearcher.test.ts src/domain/services/
+# Move and rename a domain test to kebab-case
+mv test/services/NoteSearcher.test.ts src/domain/services/note-searcher.test.ts
 
-# Move a use case test  
-mv test/tools/search-vault.test.ts src/application/use-cases/SearchVaultUseCaseImpl.test.ts
+# Move and rename a use case test  
+mv test/tools/search-vault.test.ts src/application/use-cases/search-vault-use-case-impl.test.ts
 
-# Keep integration test where it is
-# test/integration/real-vault.test.ts stays put
+# Keep integration test where it is (already kebab-case)
+# test/integration/real-vault.integration.test.ts stays put
 ```
 
 ### Benefits You'll See

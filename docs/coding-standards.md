@@ -2,11 +2,72 @@
 
 This document defines coding standards NOT handled by Biome. For formatting and basic linting rules, Biome handles them automatically.
 
+## File Naming Conventions
+
+### Always Use Kebab-Case
+
+**All file names must use kebab-case (lowercase with hyphens)**. This ensures:
+- Consistency across the codebase
+- No issues with case-sensitive vs case-insensitive file systems
+- Clear word boundaries in file names
+- Compatibility with URLs and command-line tools
+
+```typescript
+// ✅ GOOD: Kebab-case file names
+note-searcher.ts
+note-searcher.test.ts
+search-vault-use-case.ts
+mcp-server-adapter.ts
+file-system-port.ts
+in-memory-cache.ts
+
+// ❌ BAD: Other naming styles
+NoteSearcher.ts          // PascalCase
+noteSearcher.ts          // camelCase
+note_searcher.ts         // snake_case
+NOTESEARCHER.ts          // UPPERCASE
+```
+
+### File Naming Patterns
+
+```typescript
+// Domain entities
+src/domain/entities/note.ts
+src/domain/entities/search-result.ts
+
+// Domain services  
+src/domain/services/note-searcher.ts
+src/domain/services/note-ranker.ts
+
+// Use cases
+src/application/use-cases/search-vault-use-case-impl.ts
+src/application/use-cases/get-note-use-case-impl.ts
+
+// Ports
+src/application/ports/primary/search-vault-use-case.ts
+src/application/ports/secondary/note-repository.ts
+
+// Adapters
+src/infrastructure/adapters/primary/mcp-server-adapter.ts
+src/infrastructure/adapters/secondary/file-note-repository.ts
+
+// Tests (co-located)
+src/domain/entities/note.test.ts
+src/domain/services/note-searcher.test.ts
+
+// Test helpers
+test/helpers/mock-file-system.ts
+test/helpers/test-data-builder.ts
+
+// Integration tests
+test/integration/mcp-protocol.integration.test.ts
+```
+
 ## Automated by Biome
 
 The following are handled by Biome and don't need manual attention:
 - Formatting (indentation, line width, quotes, semicolons)
-- Basic linting (no-var, no-console, no-any, naming conventions)
+- Basic linting (no-var, no-console, no-any, naming conventions for variables/functions)
 - Import organization
 - Code complexity checks
 - Security basics (no eval, no dangerous HTML)
