@@ -39,6 +39,14 @@ src/domain/entities/search-result.ts
 src/domain/services/note-searcher.ts
 src/domain/services/note-ranker.ts
 
+// Domain types
+src/domain/types/result.ts
+src/domain/types/frontmatter.ts
+
+// Domain errors
+src/domain/errors/note-errors.ts
+src/domain/errors/vault-errors.ts
+
 // Use cases
 src/application/use-cases/search-vault-use-case-impl.ts
 src/application/use-cases/get-note-use-case-impl.ts
@@ -55,12 +63,31 @@ src/infrastructure/adapters/secondary/file-note-repository.ts
 src/domain/entities/note.test.ts
 src/domain/services/note-searcher.test.ts
 
+// Error handling tests (specific suffix)
+src/infrastructure/adapters/secondary/file-note-repository.error.test.ts
+
+// Integration tests (specific suffix)
+test/integration/file-note-repository.integration.test.ts
+test/integration/mcp-protocol.integration.test.ts
+
 // Test helpers
 test/helpers/mock-file-system.ts
 test/helpers/test-data-builder.ts
+```
 
-// Integration tests
-test/integration/mcp-protocol.integration.test.ts
+### Test File Naming Conventions
+
+Different test types use specific suffixes for clarity:
+
+```typescript
+// Unit tests (default, co-located with code)
+note-searcher.test.ts           // Standard unit tests
+
+// Error handling tests (edge cases and error scenarios)
+file-note-repository.error.test.ts  // Error handling specific tests
+
+// Integration tests (real I/O, external systems)
+file-note-repository.integration.test.ts  // Tests with real file system
 ```
 
 ## Automated by Biome
@@ -75,6 +102,26 @@ The following are handled by Biome and don't need manual attention:
 - **Consistent spacing**: Automated bracket spacing and line breaks
 
 Run `bun run lint:fix` to automatically fix most issues.
+
+### TypeScript Strict Mode Considerations
+
+When using TypeScript with `exactOptionalPropertyTypes`, handle index signatures properly:
+
+```typescript
+// ✅ Good: Use bracket notation for index signatures
+interface Frontmatter {
+  [key: string]: unknown;
+}
+
+const title = frontmatter['title']; // TypeScript requires brackets
+
+// Add biome-ignore comment when intentional
+// biome-ignore lint/complexity/useLiteralKeys: TypeScript requires bracket notation for index signatures
+const field = data['dynamicField'];
+
+// ❌ Bad: Dot notation fails with exactOptionalPropertyTypes
+const title = frontmatter.title; // Type error with index signatures
+```
 
 ### Diff-Friendly Formatting
 
@@ -282,27 +329,104 @@ console.error(`Failed to parse ${path}: ${error}`);
 logger.info(`Found ${count} results for "${query}"`);
 ```
 
-### Custom Error Classes
+### Result Type Pattern (Functional Error Handling)
 
-Create specific error classes with structured data:
+Use the `Result<T, E>` type for operations that can fail, making error handling explicit and type-safe:
 
 ```typescript
-// ✅ Good: Structured error class
-export class NoteNotFoundError extends Error {
-  constructor(
-    public readonly path: string,
-    public readonly vaultPath: string,
-  ) {
-    super('Note not found');
-    this.name = 'NoteNotFoundError';
+// ✅ Good: Explicit error handling with Result type
+import { Result, Ok, Err } from '../domain/types/result';
+
+async findByPath(path: string): Promise<Result<Note | null, DomainError>> {
+  try {
+    const content = await this.fs.readFile(path);
+    const note = this.parseNote(content);
+    return Ok(note);
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      return Ok(null); // File not found is a valid result
+    }
+    return Err(new FileSystemError('read', path, error));
   }
 }
 
-// Usage
-throw new NoteNotFoundError(path, vaultPath);
+// Usage in use cases
+const result = await repository.findByPath(path);
+if (isErr(result)) {
+  // Handle error explicitly
+  logger.error('Failed to find note', { error: result.error });
+  throw result.error;
+}
+const note = result.value; // Type-safe access
+
+// ❌ Bad: Throwing exceptions for expected failures
+async findByPath(path: string): Promise<Note | null> {
+  const content = await this.fs.readFile(path); // Might throw
+  return this.parseNote(content); // Might throw
+}
+```
+
+### Custom Error Classes
+
+Create specific error classes with structured data and error codes:
+
+```typescript
+// ✅ Good: Domain error with context
+export abstract class DomainError extends Error {
+  constructor(
+    message: string,
+    public readonly code: string,
+    public readonly context?: Record<string, unknown>,
+  ) {
+    super(message);
+    this.name = this.constructor.name;
+  }
+}
+
+export class NoteNotFoundError extends DomainError {
+  constructor(path: string) {
+    super(
+      `Note not found: ${path}`,
+      'NOTE_NOT_FOUND',
+      { path },
+    );
+  }
+}
+
+// Usage with Result type
+return Err(new NoteNotFoundError(path));
 
 // ❌ Bad: Generic error with string interpolation
 throw new Error(`Note not found: ${path} in ${vaultPath}`);
+```
+
+### Graceful Error Recovery
+
+Continue processing when individual items fail:
+
+```typescript
+// ✅ Good: Continue loading other notes on failure
+private async loadAllNotes(dirPath: string): Promise<Result<Note[], DomainError>> {
+  const notes: Note[] = [];
+  
+  for (const entry of entries) {
+    const noteResult = await this.loadNote(entry);
+    if (noteResult.ok && noteResult.value) {
+      notes.push(noteResult.value);
+    } else if (!noteResult.ok) {
+      // Log error but continue loading other notes
+      logger.warn('Failed to load note', { path: entry, error: noteResult.error });
+    }
+  }
+  
+  return Ok(notes);
+}
+
+// ❌ Bad: Fail entire operation on first error
+for (const entry of entries) {
+  const note = await this.loadNote(entry); // Throws on error
+  notes.push(note);
+}
 ```
 
 ### Logging Standards
@@ -331,19 +455,47 @@ console.log(`Search for "${query}" found ${results.length} results`);
 console.error('Error:', error);
 ```
 
+### When to Use Result vs Exceptions
+
+**Use Result Type for:**
+- Expected failures (file not found, validation errors)
+- Repository/Port methods that interact with external systems
+- Operations where the caller needs to handle errors differently
+
+**Use Exceptions for:**
+- Programming errors (null pointer, type mismatches)
+- Unrecoverable errors (out of memory, corruption)
+- Internal invariant violations
+
+```typescript
+// ✅ Good: Result for expected failures
+async findNote(path: string): Promise<Result<Note, NoteError>> {
+  // File might not exist - expected
+  return this.repository.findByPath(path);
+}
+
+// ✅ Good: Exception for programming errors
+function processNote(note: Note) {
+  if (!note) {
+    throw new Error('Note cannot be null'); // Programming error
+  }
+  // ...
+}
+```
+
 ### Never Silently Fail
 
 ```typescript
-// ✅ Good: Explicit error handling
-async getNote(path: string): Promise<Note | null> {
+// ✅ Good: Explicit error handling with Result
+async getNote(path: string): Promise<Result<Note | null, DomainError>> {
   try {
     const content = await this.fileSystem.readFile(path);
-    return this.parseNote(content);
+    return Ok(this.parseNote(content));
   } catch (error) {
     if (error.code === 'ENOENT') {
-      return null; // File doesn't exist is expected
+      return Ok(null); // File doesn't exist is expected
     }
-    throw new Error('Failed to read note', { cause: { path, error } });
+    return Err(new FileSystemError('read', path, error));
   }
 }
 
