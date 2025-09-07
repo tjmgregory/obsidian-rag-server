@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
 import { Note } from '../../domain/entities/note';
+import { Ok } from '../../domain/types/result';
 import type { NoteRepository } from '../ports/secondary/note-repository';
 import { ListNotesUseCaseImpl } from './list-notes-use-case-impl';
 
@@ -53,13 +54,13 @@ describe('ListNotesUseCaseImpl', () => {
     ];
 
     mockRepository = {
-      findAll: async () => allNotes,
-      findByPath: async () => null,
+      findAll: async () => Ok(allNotes),
+      findByPath: async () => Ok(null),
       findByFolder: async (folder: string) => {
-        return allNotes.filter((n) => n.path.startsWith(folder));
+        return Ok(allNotes.filter((n) => n.path.startsWith(folder)));
       },
-      getAllTags: async () => new Map(),
-      getRecentlyModified: async () => [],
+      getAllTags: async () => Ok(new Map()),
+      getRecentlyModified: async () => Ok([]),
     };
 
     useCase = new ListNotesUseCaseImpl(mockRepository);

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
 import { Note } from '../../domain/entities/note';
+import { Ok } from '../../domain/types/result';
 import type { NoteRepository } from '../ports/secondary/note-repository';
 import { GetNoteUseCaseImpl } from './get-note-use-case-impl';
 
@@ -21,16 +22,16 @@ describe('GetNoteUseCaseImpl', () => {
     );
 
     mockRepository = {
-      findAll: async () => [],
+      findAll: async () => Ok([]),
       findByPath: async (path: string) => {
         if (path === 'test.md') {
-          return testNote;
+          return Ok(testNote);
         }
-        return null;
+        return Ok(null);
       },
-      findByFolder: async () => [],
-      getAllTags: async () => new Map(),
-      getRecentlyModified: async () => [],
+      findByFolder: async () => Ok([]),
+      getAllTags: async () => Ok(new Map()),
+      getRecentlyModified: async () => Ok([]),
     };
 
     useCase = new GetNoteUseCaseImpl(mockRepository);
@@ -52,9 +53,9 @@ describe('GetNoteUseCaseImpl', () => {
   test('should handle special characters in path', async () => {
     mockRepository.findByPath = async (path: string) => {
       if (path === 'folder/file with spaces.md') {
-        return testNote;
+        return Ok(testNote);
       }
-      return null;
+      return Ok(null);
     };
 
     const note = await useCase.execute('folder/file with spaces.md');

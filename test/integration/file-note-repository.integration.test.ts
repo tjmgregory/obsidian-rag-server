@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, test } from 'bun:test';
 import * as path from 'node:path';
+import { isOk, unwrap } from '../../src/domain/types/result';
 import { BunFileSystem } from '../../src/infrastructure/adapters/secondary/bun-file-system';
 import { FileNoteRepository } from '../../src/infrastructure/adapters/secondary/file-note-repository';
 
@@ -13,8 +14,10 @@ describe('FileNoteRepository Integration Tests', () => {
   });
 
   test('should load all markdown files from real file system', async () => {
-    const notes = await repository.findAll();
+    const result = await repository.findAll();
 
+    expect(isOk(result)).toBe(true);
+    const notes = unwrap(result);
     expect(notes).toHaveLength(5); // We created 5 test files
 
     const paths = notes.map((n) => n.path).sort();
@@ -28,7 +31,9 @@ describe('FileNoteRepository Integration Tests', () => {
   });
 
   test('should parse frontmatter correctly from real files', async () => {
-    const notes = await repository.findAll();
+    const result = await repository.findAll();
+    expect(isOk(result)).toBe(true);
+    const notes = unwrap(result);
     const withFrontmatter = notes.find((n) => n.path === 'with-frontmatter.md');
 
     expect(withFrontmatter).toBeDefined();
@@ -43,7 +48,9 @@ describe('FileNoteRepository Integration Tests', () => {
   });
 
   test('should extract all tags from real files', async () => {
-    const notes = await repository.findAll();
+    const result = await repository.findAll();
+    expect(isOk(result)).toBe(true);
+    const notes = unwrap(result);
     const projectNote = notes.find((n) => n.path === 'projects/project-1.md');
 
     expect(projectNote).toBeDefined();
@@ -55,7 +62,9 @@ describe('FileNoteRepository Integration Tests', () => {
   });
 
   test('should extract links from real files', async () => {
-    const notes = await repository.findAll();
+    const result = await repository.findAll();
+    expect(isOk(result)).toBe(true);
+    const notes = unwrap(result);
     const dailyNote = notes.find((n) => n.path === 'daily/2024-01-01.md');
 
     expect(dailyNote).toBeDefined();
@@ -63,7 +72,9 @@ describe('FileNoteRepository Integration Tests', () => {
   });
 
   test('should handle empty files gracefully', async () => {
-    const notes = await repository.findAll();
+    const result = await repository.findAll();
+    expect(isOk(result)).toBe(true);
+    const notes = unwrap(result);
     const emptyNote = notes.find((n) => n.path === 'resources/empty-note.md');
 
     expect(emptyNote).toBeDefined();
@@ -74,15 +85,19 @@ describe('FileNoteRepository Integration Tests', () => {
   });
 
   test('should find notes by folder', async () => {
-    const projectNotes = await repository.findByFolder('projects');
+    const result = await repository.findByFolder('projects');
 
+    expect(isOk(result)).toBe(true);
+    const projectNotes = unwrap(result);
     expect(projectNotes).toHaveLength(1);
     expect(projectNotes[0]?.path).toBe('projects/project-1.md');
   });
 
   test('should find note by specific path', async () => {
-    const note = await repository.findByPath('simple-note.md');
+    const result = await repository.findByPath('simple-note.md');
 
+    expect(isOk(result)).toBe(true);
+    const note = unwrap(result);
     expect(note).not.toBeNull();
     expect(note?.title).toBe('Simple Note');
     expect(note?.tags).toContain('simple-tag');
@@ -90,8 +105,10 @@ describe('FileNoteRepository Integration Tests', () => {
   });
 
   test('should aggregate all tags with counts', async () => {
-    const tags = await repository.getAllTags();
+    const result = await repository.getAllTags();
 
+    expect(isOk(result)).toBe(true);
+    const tags = unwrap(result);
     // Check some expected tags and their counts
     expect(tags.get('project')).toBe(1);
     expect(tags.get('daily')).toBe(1);
@@ -100,8 +117,10 @@ describe('FileNoteRepository Integration Tests', () => {
   });
 
   test('should get recently modified notes', async () => {
-    const recent = await repository.getRecentlyModified(3);
+    const result = await repository.getRecentlyModified(3);
 
+    expect(isOk(result)).toBe(true);
+    const recent = unwrap(result);
     expect(recent).toHaveLength(3);
     // Should be sorted by modification date (newest first)
     for (let i = 0; i < recent.length - 1; i++) {
@@ -112,22 +131,27 @@ describe('FileNoteRepository Integration Tests', () => {
   });
 
   test('should handle non-existent paths correctly', async () => {
-    const note = await repository.findByPath('non-existent.md');
+    const result = await repository.findByPath('non-existent.md');
+    expect(isOk(result)).toBe(true);
+    const note = unwrap(result);
     expect(note).toBeNull();
   });
 
   test('should load notes with complex paths', async () => {
-    const note = await repository.findByPath('projects/project-1.md');
+    const result = await repository.findByPath('projects/project-1.md');
 
+    expect(isOk(result)).toBe(true);
+    const note = unwrap(result);
     expect(note).not.toBeNull();
     expect(note?.title).toBe('Project Alpha');
   });
 
   test('performance: should load vault quickly', async () => {
     const start = performance.now();
-    await repository.findAll();
+    const result = await repository.findAll();
     const duration = performance.now() - start;
 
+    expect(isOk(result)).toBe(true);
     // Should load our small test vault in under 100ms
     expect(duration).toBeLessThan(100);
   });

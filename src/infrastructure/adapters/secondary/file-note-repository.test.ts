@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
 import { MockFileSystem } from '../../../../test/helpers/mock-file-system';
+import { isOk, unwrap } from '../../../domain/types/result';
 import { FileNoteRepository } from './file-note-repository';
 
 describe('FileNoteRepository', () => {
@@ -16,8 +17,10 @@ describe('FileNoteRepository', () => {
     mockFs.addFile('/vault/note2.md', '# Note 2\n\nContent of note 2');
     mockFs.addFile('/vault/README.txt', 'Not a markdown file');
 
-    const notes = await repository.findAll();
+    const result = await repository.findAll();
 
+    expect(isOk(result)).toBe(true);
+    const notes = unwrap(result);
     expect(notes).toHaveLength(2);
     expect(notes[0]?.path).toBe('note1.md');
     expect(notes[0]?.title).toBe('Note 1');
@@ -38,8 +41,10 @@ date: 2024-01-01
 Note content here.`,
     );
 
-    const notes = await repository.findAll();
+    const result = await repository.findAll();
 
+    expect(isOk(result)).toBe(true);
+    const notes = unwrap(result);
     expect(notes).toHaveLength(1);
     expect(notes[0]?.title).toBe('Custom Title');
     expect(notes[0]?.frontmatter).toMatchObject({
@@ -58,8 +63,10 @@ Note content here.`,
 Content with #inline-tag and #another-tag in the text.`,
     );
 
-    const notes = await repository.findAll();
+    const result = await repository.findAll();
 
+    expect(isOk(result)).toBe(true);
+    const notes = unwrap(result);
     expect(notes[0]?.tags).toContain('inline-tag');
     expect(notes[0]?.tags).toContain('another-tag');
   });
@@ -72,8 +79,10 @@ Content with #inline-tag and #another-tag in the text.`,
 This references [[other-note]] and [[another-note|with alias]].`,
     );
 
-    const notes = await repository.findAll();
+    const result = await repository.findAll();
 
+    expect(isOk(result)).toBe(true);
+    const notes = unwrap(result);
     expect(notes[0]?.links).toContain('other-note');
     expect(notes[0]?.links).toContain('another-note');
   });
@@ -83,8 +92,10 @@ This references [[other-note]] and [[another-note|with alias]].`,
     mockFs.addFile('/vault/.obsidian/config.md', '# Config');
     mockFs.addFile('/vault/.trash/deleted.md', '# Deleted');
 
-    const notes = await repository.findAll();
+    const result = await repository.findAll();
 
+    expect(isOk(result)).toBe(true);
+    const notes = unwrap(result);
     expect(notes).toHaveLength(1);
     expect(notes[0]?.path).toBe('note.md');
   });
@@ -93,16 +104,23 @@ This references [[other-note]] and [[another-note|with alias]].`,
     mockFs.addFile('/vault/projects/project1.md', '# Project 1');
     mockFs.addFile('/vault/daily/2024-01-01.md', '# Daily Note');
 
-    const note = await repository.findByPath('projects/project1.md');
+    const result = await repository.findByPath('projects/project1.md');
 
+    expect(isOk(result)).toBe(true);
+    const note = unwrap(result);
     expect(note).not.toBeNull();
     expect(note?.title).toBe('Project 1');
     expect(note?.path).toBe('projects/project1.md');
   });
 
   test('should return null for non-existent path', async () => {
-    const note = await repository.findByPath('non-existent.md');
+    // Ensure cache is populated first
+    mockFs.addFile('/vault/some-note.md', '# Some Note');
 
+    const result = await repository.findByPath('non-existent.md');
+
+    expect(isOk(result)).toBe(true);
+    const note = unwrap(result);
     expect(note).toBeNull();
   });
 
@@ -111,8 +129,10 @@ This references [[other-note]] and [[another-note|with alias]].`,
     mockFs.addFile('/vault/projects/project2.md', '# Project 2');
     mockFs.addFile('/vault/daily/2024-01-01.md', '# Daily Note');
 
-    const notes = await repository.findByFolder('projects');
+    const result = await repository.findByFolder('projects');
 
+    expect(isOk(result)).toBe(true);
+    const notes = unwrap(result);
     expect(notes).toHaveLength(2);
     expect(notes[0]?.path).toBe('projects/project1.md');
     expect(notes[1]?.path).toBe('projects/project2.md');
@@ -123,8 +143,10 @@ This references [[other-note]] and [[another-note|with alias]].`,
     mockFs.addFile('/vault/note2.md', 'Content with #tag1 and #tag3');
     mockFs.addFile('/vault/note3.md', 'Content with #tag1');
 
-    const tags = await repository.getAllTags();
+    const result = await repository.getAllTags();
 
+    expect(isOk(result)).toBe(true);
+    const tags = unwrap(result);
     expect(tags.get('tag1')).toBe(3);
     expect(tags.get('tag2')).toBe(1);
     expect(tags.get('tag3')).toBe(1);
@@ -136,8 +158,10 @@ This references [[other-note]] and [[another-note|with alias]].`,
     mockFs.addFile('/vault/note2.md', '# Note 2');
     mockFs.addFile('/vault/note3.md', '# Note 3');
 
-    const recent = await repository.getRecentlyModified(2);
+    const result = await repository.getRecentlyModified(2);
 
+    expect(isOk(result)).toBe(true);
+    const recent = unwrap(result);
     expect(recent).toHaveLength(2);
   });
 });

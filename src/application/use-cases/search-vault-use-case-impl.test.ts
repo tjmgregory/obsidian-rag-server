@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
 import { Note } from '../../domain/entities/note';
+import { VaultAccessError } from '../../domain/errors/note-errors';
+import { Err, Ok } from '../../domain/types/result';
 import type { NoteRepository } from '../ports/secondary/note-repository';
 import { SearchVaultUseCaseImpl } from './search-vault-use-case-impl';
 
@@ -43,11 +45,11 @@ describe('SearchVaultUseCaseImpl', () => {
     ];
 
     mockRepository = {
-      findAll: async () => testNotes,
-      findByPath: async (path: string) => testNotes.find((n) => n.path === path) || null,
-      findByFolder: async () => [],
-      getAllTags: async () => new Map(),
-      getRecentlyModified: async () => [],
+      findAll: async () => Ok(testNotes),
+      findByPath: async (path: string) => Ok(testNotes.find((n) => n.path === path) || null),
+      findByFolder: async () => Ok([]),
+      getAllTags: async () => Ok(new Map()),
+      getRecentlyModified: async () => Ok([]),
     };
 
     useCase = new SearchVaultUseCaseImpl(mockRepository);
@@ -78,9 +80,9 @@ describe('SearchVaultUseCaseImpl', () => {
 
   test('should handle repository errors gracefully', async () => {
     mockRepository.findAll = async () => {
-      throw new Error('Database connection failed');
+      return Err(new VaultAccessError('/vault', new Error('Database connection failed')));
     };
 
-    expect(useCase.execute('test')).rejects.toThrow('Database connection failed');
+    expect(useCase.execute('test')).rejects.toThrow('Cannot access vault at: /vault');
   });
 });
