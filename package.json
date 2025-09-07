@@ -1,25 +1,28 @@
 {
-  "name": "obsidian-rag",
+  "name": "obsidian-rag-server",
   "version": "0.1.0",
-  "description": "RAG system for intelligent knowledge retrieval from Obsidian vaults with MCP interface",
-  "main": "main.js",
+  "description": "MCP server for RAG-based retrieval from Obsidian vaults",
+  "main": "src/index.ts",
+  "type": "module",
   "scripts": {
-    "dev": "vite build --watch",
-    "build": "vite build",
-    "test": "vitest run",
-    "test:watch": "vitest watch",
-    "lint": "biome check src/",
-    "format": "biome check --apply src/",
-    "clean": "rm -rf dist/ main.js"
+    "dev": "bun run --watch src/index.ts",
+    "start": "bun run src/index.ts",
+    "test": "bun test",
+    "test:watch": "bun test --watch",
+    "typecheck": "bunx tsc --noEmit",
+    "build": "bun build src/index.ts --target=bun --outfile=dist/server.js"
   },
-  "keywords": ["obsidian", "plugin", "mcp", "rag", "retrieval", "knowledge-base", "ai"],
+  "keywords": ["obsidian", "mcp", "rag", "retrieval", "knowledge-base"],
   "author": "Theo",
   "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.17.0",
+    "chokidar": "^3.6.0",
+    "gray-matter": "^4.0.3"
+  },
   "devDependencies": {
-    "obsidian": "latest",
+    "@types/bun": "latest",
     "@types/node": "^20.0.0",
-    "typescript": "^5.3.0",
-    "vite": "^5.0.0",
-    "vitest": "^1.2.0"
+    "typescript": "^5.3.0"
   }
 }
