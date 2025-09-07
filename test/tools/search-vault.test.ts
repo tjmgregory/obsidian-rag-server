@@ -23,13 +23,13 @@ describe('search_vault tool', () => {
   test('finds notes by exact keyword match', async () => {
     const results = await vaultService.searchNotes('Project Alpha');
     expect(results.length).toBeGreaterThan(0);
-    expect(results[0].note.title).toBe('Project Alpha');
+    expect(results[0]?.note.title).toBe('Project Alpha');
   });
 
   test('finds notes by partial keyword match', async () => {
     const results = await vaultService.searchNotes('testing');
     expect(results.length).toBeGreaterThan(0);
-    expect(results[0].snippet).toContain('testing');
+    expect(results[0]?.snippet).toContain('testing');
   });
 
   test('returns empty array when no matches found', async () => {

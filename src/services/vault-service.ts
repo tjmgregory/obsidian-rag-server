@@ -2,15 +2,19 @@ import type { Note, SearchResult, VaultConfig } from '../types';
 import type { FileSystemAdapter } from './file-system.interface';
 
 export class VaultService {
-  private cache: Map<string, Note> = new Map();
+  private readonly cache: Map<string, Note> = new Map();
 
   constructor(
-    private config: VaultConfig,
-    private fileSystem?: FileSystemAdapter,
+    private readonly config: VaultConfig,
+    private readonly fileSystem?: FileSystemAdapter,
   ) {}
 
   async initialize(): Promise<void> {
     // TODO: Load vault and set up file watching
+    // Will use this.config, this.fileSystem, and this.cache
+    void this.config; // Temporary - remove when implementing
+    void this.fileSystem; // Temporary - remove when implementing
+    void this.cache; // Temporary - remove when implementing
     throw new Error('Not implemented');
   }
 

@@ -51,12 +51,6 @@
         "noDefaultExport": "off",
         "noNegationElse": "off",
         "noParameterAssign": "error",
-        "noRestrictedGlobals": {
-          "level": "error",
-          "options": {
-            "deniedGlobals": ["console"]
-          }
-        },
         "noUselessElse": "error",
         "noVar": "error",
         "useAsConstAssertion": "error",
@@ -141,5 +135,17 @@
   },
   "files": {
     "ignore": ["node_modules", "dist", "*.min.js", "coverage", ".git", "bun.lockb"]
-  }
+  },
+  "overrides": [
+    {
+      "include": ["src/utils/logger.ts"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noConsoleLog": "off"
+          }
+        }
+      }
+    }
+  ]
 }

@@ -59,35 +59,94 @@ import { readFile } from 'fs/promises';
 await readFile(path);
 ```
 
-## Error Handling Philosophy
+## Error Handling & Logging Philosophy
 
-### Provide Context in Errors
+### Structured Logging Pattern
 
-Biome can't check error message quality:
+Always pass dynamic values as context, not in the message string:
 
 ```typescript
-// ✅ Good: Contextual error
-throw new Error(`Note not found at path: ${path}`);
+// ✅ Good: Structured with context
+throw new Error('Note not found', { cause: { path, vaultId } });
+console.error('Failed to parse note', { path, error });
+logger.info('Search completed', { query, resultCount, duration });
 
-// ❌ Bad: Generic error
-throw new Error('Not found');
+// ❌ Bad: Dynamic values in string
+throw new Error(`Note not found at path: ${path}`);
+console.error(`Failed to parse ${path}: ${error}`);
+logger.info(`Found ${count} results for "${query}"`);
+```
+
+### Custom Error Classes
+
+Create specific error classes with structured data:
+
+```typescript
+// ✅ Good: Structured error class
+export class NoteNotFoundError extends Error {
+  constructor(
+    public readonly path: string,
+    public readonly vaultPath: string,
+  ) {
+    super('Note not found');
+    this.name = 'NoteNotFoundError';
+  }
+}
+
+// Usage
+throw new NoteNotFoundError(path, vaultPath);
+
+// ❌ Bad: Generic error with string interpolation
+throw new Error(`Note not found: ${path} in ${vaultPath}`);
+```
+
+### Logging Standards
+
+```typescript
+// ✅ Good: Consistent structured logging
+interface LogContext {
+  [key: string]: unknown;
+}
+
+function log(level: 'info' | 'warn' | 'error', message: string, context?: LogContext) {
+  console[level](JSON.stringify({ 
+    timestamp: new Date().toISOString(),
+    level,
+    message,
+    ...context,
+  }));
+}
+
+// Usage
+log('info', 'Search completed', { query, results: results.length, ms: duration });
+log('error', 'Failed to parse note', { path, error: error.message });
+
+// ❌ Bad: Inconsistent logging
+console.log(`Search for "${query}" found ${results.length} results`);
+console.error('Error:', error);
 ```
 
 ### Never Silently Fail
 
 ```typescript
-// ✅ Good: Explicit null return
+// ✅ Good: Explicit error handling
 async getNote(path: string): Promise<Note | null> {
-  const content = await this.fileSystem.readFile(path).catch(() => null);
-  if (!content) return null;
-  return this.parseNote(content);
+  try {
+    const content = await this.fileSystem.readFile(path);
+    return this.parseNote(content);
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      return null; // File doesn't exist is expected
+    }
+    throw new Error('Failed to read note', { cause: { path, error } });
+  }
 }
 
-// ❌ Bad: Swallowing errors without intent
+// ❌ Bad: Swallowing errors
 try {
   return await this.fileSystem.readFile(path);
 } catch {
-  // Silent failure - unclear if intentional
+  return null; // Which error? Why?
 }
 ```
 
