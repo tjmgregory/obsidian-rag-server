@@ -146,6 +146,16 @@
           }
         }
       }
+    },
+    {
+      "include": ["test/benchmarks/**/*.ts"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noConsoleLog": "off"
+          }
+        }
+      }
     }
   ]
 }

@@ -10,7 +10,12 @@ describe('FileNoteRepository Integration Tests', () => {
 
   beforeAll(() => {
     const fileSystem = new BunFileSystem();
-    repository = new FileNoteRepository(testVaultPath, fileSystem, ['.obsidian', '.trash']);
+    repository = new FileNoteRepository(
+      testVaultPath,
+      fileSystem,
+      ['.obsidian', '.trash'],
+      false, // Disable performance monitoring for integration tests
+    );
   });
 
   test('should load all markdown files from real file system', async () => {

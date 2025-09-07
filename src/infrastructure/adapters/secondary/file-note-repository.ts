@@ -10,18 +10,38 @@ import {
 } from '../../../domain/errors/note-errors';
 import { normalizeFrontmatter } from '../../../domain/types/frontmatter';
 import { Err, Ok, type Result } from '../../../domain/types/result';
+import { PerformanceMonitor } from '../../monitoring/performance-monitor';
 
 export class FileNoteRepository implements NoteRepository {
   private notesCache: Note[] = [];
+  private performanceMonitor = new PerformanceMonitor();
 
   constructor(
     private vaultPath: string,
     private fileSystem: FileSystemPort,
     private ignoredFolders: string[] = [],
+    private enablePerformanceMonitoring = false,
   ) {}
 
   async findAll(): Promise<Result<Note[], DomainError>> {
+    if (this.enablePerformanceMonitoring) {
+      this.performanceMonitor.startTimer('vault.findAll');
+    }
+
     const result = await this.loadAllNotes(this.vaultPath);
+
+    if (this.enablePerformanceMonitoring) {
+      const metrics = this.performanceMonitor.endTimer('vault.findAll', {
+        itemCount: result.ok ? result.value.length : 0,
+        success: result.ok,
+      });
+
+      if (result.ok) {
+        // biome-ignore lint/suspicious/noConsoleLog: Performance monitoring output
+        console.log(`Loaded ${result.value.length} notes in ${metrics.duration.toFixed(2)}ms`);
+      }
+    }
+
     if (result.ok) {
       this.notesCache = result.value;
       return Ok(this.notesCache);
@@ -218,5 +238,22 @@ export class FileNoteRepository implements NoteRepository {
     }
 
     return links;
+  }
+
+  /**
+   * Get performance metrics for monitoring
+   */
+  getPerformanceMetrics() {
+    return {
+      metrics: this.performanceMonitor.getMetrics(),
+      summary: this.performanceMonitor.getStats('vault.findAll'),
+    };
+  }
+
+  /**
+   * Clear performance metrics
+   */
+  clearPerformanceMetrics() {
+    this.performanceMonitor.clear();
   }
 }

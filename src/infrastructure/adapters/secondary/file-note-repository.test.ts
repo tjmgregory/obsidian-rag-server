@@ -9,7 +9,7 @@ describe('FileNoteRepository', () => {
 
   beforeEach(() => {
     mockFs = new MockFileSystem();
-    repository = new FileNoteRepository('/vault', mockFs, ['.obsidian', '.trash']);
+    repository = new FileNoteRepository('/vault', mockFs, ['.obsidian', '.trash'], false);
   });
 
   test('should load all markdown files as notes', async () => {

@@ -10,7 +10,7 @@ describe('FileNoteRepository Error Handling', () => {
 
   beforeEach(() => {
     mockFs = new MockFileSystem();
-    repository = new FileNoteRepository('/vault', mockFs, ['.obsidian', '.trash']);
+    repository = new FileNoteRepository('/vault', mockFs, ['.obsidian', '.trash'], false);
   });
 
   test('should return error when vault directory does not exist', async () => {
