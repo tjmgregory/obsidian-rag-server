@@ -97,6 +97,54 @@ Create a `config.json` file:
 
 ## Development
 
+### Setup
+
+```bash
+# Install dependencies
+bun install
+
+# Set up git hooks (recommended)
+bash scripts/setup-hooks.sh
+```
+
+### Commands
+
+```bash
+# Run in development mode with watch
+bun run dev
+
+# Run tests
+bun test
+
+# Linting and formatting
+bun run lint        # Check for issues
+bun run lint:fix    # Auto-fix issues
+bun run format      # Format code
+
+# Type checking
+bun run typecheck
+
+# Run all checks (lint, typecheck, tests)
+bun run check
+
+# Build for production
+bun run build
+```
+
+### Git Hooks
+
+The project includes a pre-commit hook that ensures code quality by running:
+- Biome linting
+- TypeScript type checking  
+- Test suite (TDD-aware)
+
+The hook supports TDD workflow:
+- When committing test files (`.test.ts`), failing tests are allowed (red phase)
+- When committing implementation files, tests must pass (green/refactor phase)
+- To skip hooks temporarily, use `git commit --no-verify`
+
+### Documentation
+
 See [docs/phase-1-implementation-guide.md](docs/phase-1-implementation-guide.md) for the development roadmap.
 
 ## Architecture

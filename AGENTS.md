@@ -27,6 +27,18 @@ Key principles:
 - TypeScript strict mode always
 - No Vite/Vitest - use Bun's built-in test runner
 
+## Git Hooks
+
+The project has a TDD-aware git pre-commit hook:
+
+- **pre-commit**: Runs lint, typecheck, and tests
+- **TDD Support**: 
+  - Allows failing tests when committing test files (red phase)
+  - Requires passing tests when committing implementation (green/refactor)
+- Located in `.git/hooks/pre-commit`
+
+The hook intelligently handles TDD workflow - you can commit failing tests when writing them, but implementation commits require all tests to pass.
+
 ## Decision Log Protocol
 
 When making important technical decisions:
