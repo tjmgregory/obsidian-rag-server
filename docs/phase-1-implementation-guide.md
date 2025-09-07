@@ -402,6 +402,101 @@ Add to Claude Desktop config (`~/Library/Application Support/Claude/claude_deskt
 - Memory usage <100MB for 1000 notes
 - File change detection <1 second
 
+## Test-Driven Development Strategy
+
+### File System Abstraction for Testing
+
+Abstract file system operations behind an interface to enable fast, deterministic testing:
+
+```typescript
+// src/services/file-system.interface.ts
+export interface FileSystemAdapter {
+  readFile(path: string): Promise<string>;
+  readdir(path: string): Promise<string[]>;
+  stat(path: string): Promise<FileStats>;
+  exists(path: string): Promise<boolean>;
+  watch?(path: string, callback: (event: string, filename: string) => void): void;
+}
+
+// src/services/vault-service.ts - Constructor with dependency injection
+export class VaultService {
+  constructor(
+    private config: VaultConfig,
+    fileSystem?: FileSystemAdapter // Optional injection for testing
+  ) {
+    this.fileSystem = fileSystem || new RealFileSystem();
+  }
+}
+```
+
+**Key Benefits:**
+- Unit tests run 10-100x faster (no I/O)
+- Tests are deterministic and isolated
+- Easy to simulate edge cases and errors
+- Production code uses `RealFileSystem`, tests use `MockFileSystem`
+
+### Test Structure Examples
+
+```typescript
+// Basic test setup with mock file system
+describe('search_vault tool', () => {
+  let mockFS: MockFileSystem;
+  let vaultService: VaultService;
+
+  beforeEach(async () => {
+    mockFS = new MockFileSystem(); // Pre-seeded with test data
+    vaultService = new VaultService(config, mockFS);
+    await vaultService.initialize();
+  });
+
+  test('finds notes by keyword', async () => {
+    const results = await vaultService.searchNotes('test');
+    expect(results.length).toBeGreaterThan(0);
+  });
+  
+  test('completes search within 200ms', async () => {
+    const start = performance.now();
+    await vaultService.searchNotes('project');
+    expect(performance.now() - start).toBeLessThan(200);
+  });
+});
+```
+
+### Test Data Structure
+
+The mock should seed a standard vault structure:
+```
+/
+├── daily/          # Daily notes with dates, tasks
+├── projects/       # Active projects with tags
+├── areas/          # Ongoing areas of responsibility
+├── resources/      # Reference materials
+└── archive/        # Completed/archived content
+```
+
+Each test note should include:
+- Frontmatter (title, tags, dates)
+- Hashtags (#tag)
+- Wikilinks ([[other-note]])
+- Mixed content (headers, lists, paragraphs)
+
+### TDD Workflow
+
+1. **Write failing test first** → 2. **Implement minimal code** → 3. **Refactor**
+
+```bash
+bun test                    # Run all tests
+bun test --watch           # Watch mode for TDD
+bun test --coverage        # Check coverage
+```
+
+### Testing Best Practices
+
+- **Unit tests**: Use mocked file system (fast, isolated)
+- **Integration tests**: Use real file system sparingly (confidence in I/O)
+- **Performance tests**: Verify <200ms search on mock data
+- **Edge cases**: Test special characters, empty results, large files
+
 ## Common Issues & Solutions
 
 1. **Permission Errors**
