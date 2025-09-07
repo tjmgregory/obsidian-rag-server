@@ -145,7 +145,9 @@ The hook supports TDD workflow:
 
 ### Documentation
 
-See [docs/phase-1-implementation-guide.md](docs/phase-1-implementation-guide.md) for the development roadmap.
+- **Active Guides**: See [docs/phase-1-implementation-guide.md](docs/phase-1-implementation-guide.md) for the current development roadmap
+- **Completed Work**: Historical implementation guides are preserved in [docs/archive/](docs/archive/) with date prefixes (e.g., `2025-09-07-improvements-guide.md`)
+- **Standards**: Review [docs/coding-standards.md](docs/coding-standards.md) and [docs/testing-standards.md](docs/testing-standards.md) before contributing
 
 ## Architecture
 

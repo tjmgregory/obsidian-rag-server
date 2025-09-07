@@ -13,6 +13,15 @@ Building a standalone RAG (Retrieval-Augmented Generation) MCP server that provi
 - **Decision Log**: `docs/decision-log/` - Architectural decisions and technical choices
 - **Coding Standards**: `docs/coding-standards.md` - Code style and best practices
 - **Testing Standards**: `docs/testing-standards.md` - TDD and testing guidelines
+- **Archive**: `docs/archive/` - Completed implementation guides and historical documents
+
+### Document Archival Process
+
+When implementation guides or major planning documents are completed:
+1. Move the document to `docs/archive/`
+2. Prefix the filename with the completion date in ISO format (YYYY-MM-DD)
+3. Example: `improvements-guide.md` → `archive/2025-09-07-improvements-guide.md`
+4. This preserves historical context while keeping active docs clean
 
 ## Development Standards
 
