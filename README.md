@@ -27,7 +27,7 @@ A standalone MCP (Model Context Protocol) server that provides RAG (Retrieval-Au
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/obsidian-rag-server.git
+git clone https://github.com/tjmgregory/obsidian-rag-server.git
 cd obsidian-rag-server
 
 # Install dependencies
@@ -106,6 +106,8 @@ This is a standalone Bun/Node.js application that:
 - Parses frontmatter and extracts metadata
 - Provides MCP protocol endpoints for AI assistants
 - Watches for file changes in real-time
+
+While this server operates independently, it complements the [Obsidian plugins ecosystem](https://github.com/tjmgregory/obsidian-plugins) to provide comprehensive AI-powered capabilities for your vault.
 
 ## Performance
 
