@@ -2,6 +2,19 @@
 
 This document defines the testing standards for the Obsidian RAG Server project. All tests must follow these guidelines to ensure consistency, reliability, and maintainability.
 
+## Core Testing Philosophy
+
+### Test Behaviors, Not Implementation Details
+The fundamental principle of our testing methodology is to **test behaviors and requirements, not implementation details**. This means:
+- Tests should verify WHAT the system does, not HOW it does it
+- Focus on the public contract/API of modules, not internal classes or methods
+- A behavior is a requirement the system must fulfill (e.g., "search notes by keyword" not "the searchNotes method returns an array")
+
+### System Under Test
+- The system under test is the **module's public API**, not individual classes
+- Test at the boundary of your module (the exports/facade)
+- Internal implementation details should remain free to change without breaking tests
+
 ## Testing Framework
 
 - **Test Runner**: Bun's built-in test runner
@@ -10,15 +23,36 @@ This document defines the testing standards for the Obsidian RAG Server project.
 
 ## Test-Driven Development (TDD)
 
-### The TDD Cycle
-1. **Red**: Write a failing test first
-2. **Green**: Write minimal code to make the test pass
-3. **Refactor**: Improve code quality while keeping tests green
+### The Red-Green-Refactor Cycle
+
+This three-step cycle is the foundation of effective TDD:
+
+#### 1. RED Phase - Write a Failing Test
+- Write a test for a **behavior/requirement** you want to implement
+- The test MUST fail initially to prove it's testing something meaningful
+- Focus on the behavior from the user/consumer perspective
+- Example: "When I search for 'project', notes containing that word are returned"
+
+#### 2. GREEN Phase - Make It Pass Quickly
+- Write the **simplest, fastest code** that makes the test pass
+- **Commit whatever sins necessary** - duplicate code, poor structure, etc.
+- This is NOT the time for good engineering - be the "duct-tape programmer"
+- Goal: Understand how to solve the problem as quickly as possible
+- Use transaction scripts, copy from Stack Overflow, whatever works
+- As Kent Beck says: "For this brief moment, speed trumps design"
+
+#### 3. REFACTOR Phase - Make It Clean
+- NOW apply good engineering practices
+- Remove duplication, apply patterns, extract classes/methods
+- **CRITICAL: Do NOT write new tests during refactoring**
+- The original behavior test covers all refactoring changes
+- Use safe refactoring moves that don't change behavior
+- Only the implementation details change, not the public API
 
 ### TDD Rules
-- Never write production code without a failing test
-- Write the simplest code that makes the test pass
-- Only refactor when tests are green
+- The trigger for a new test is a **new requirement**, not a new method/class
+- Tests enable refactoring by staying stable while implementation changes
+- Unit of isolation is **the test**, not the class under test
 
 ## Test Organization
 
@@ -121,43 +155,74 @@ test('should return note with all properties', async () => {
 - Tests must run in any order
 - Use beforeEach for fresh setup
 
+## Unit Testing Clarification
+
+### What "Unit" Really Means
+- **Unit of Isolation**: The TEST, not the class under test
+- **Unit Test**: A test that can run independently without affecting other tests
+- It's perfectly fine for unit tests to:
+  - Use multiple real classes together
+  - Touch databases/filesystems IF there's no shared fixture problem
+  - Test a complete module with its internal dependencies
+
+### When External Dependencies Are OK
+- Use real dependencies when they don't cause:
+  - **Speed issues**: Tests should complete in seconds
+  - **Isolation problems**: One test affecting another
+  - **Non-determinism**: Random failures
+
 ## Mock Strategy
 
-### Use Dependency Injection
+### When to Use Mocks
+Use mocks ONLY when:
+1. **External resources are expensive/slow** (databases, APIs, file systems)
+2. **Shared fixture problems exist** (tests interfering with each other)
+3. **Testing error conditions** that are hard to reproduce
+4. **At module boundaries** when testing interactions between modules
+
+### When NOT to Use Mocks
+- **Don't mock to isolate classes** - this couples tests to implementation
+- **Don't mock internal dependencies** within a module
+- **Don't use mocks to enforce implementation details**
+- **Don't mock simple value objects or data structures**
+
+### Dependency Injection for Testing
 ```typescript
 // Production code
 export class VaultService {
   constructor(
     private config: VaultConfig,
-    private fileSystem?: FileSystemAdapter  // Injectable
+    private fileSystem?: FileSystemAdapter  // Injectable for testing
   ) {
     this.fileSystem = fileSystem || new RealFileSystem();
   }
 }
 
-// Test code
+// Test code - inject mock only when needed
 const mockFS = new MockFileSystem();
 const service = new VaultService(config, mockFS);
 ```
 
-### Mock File System Rules
-- Pre-seed with minimal test data
-- Provide helper methods for test manipulation
-- Keep mock simple and fast
-- Store everything in memory
+### Mock Implementation Guidelines
+- Keep mocks simple and focused on behavior
+- Pre-seed with minimal, predictable test data
+- Provide test helper methods for manipulation
+- Store everything in memory for speed
 
 ```typescript
 export class MockFileSystem implements FileSystemAdapter {
   private files = new Map<string, string>();
   
+  // Minimal behavior implementation
+  async readFile(path: string): Promise<string> {
+    const content = this.files.get(path);
+    if (!content) throw new Error(`File not found: ${path}`);
+    return content;
+  }
+  
   // Test helpers
   addFile(path: string, content: string): void {
     this.files.set(path, content);
-  }
-  
-  reset(): void {
-    this.files.clear();
-    this.seedTestData();
   }
 }
 ```
@@ -299,37 +364,155 @@ describe('Integration: Real file system', () => {
 bun test --coverage
 ```
 
-## Testing Anti-Patterns
+## The Testing Pyramid
 
-### Don't Do These
+### Ideal Test Distribution
+```
+         /\        <- System Tests (few)
+        /  \         Check end-to-end flows work
+       /    \      
+      /      \     <- Integration Tests (some)
+     /        \      Test module boundaries/ports
+    /          \   
+   /            \  <- Developer Tests (many)
+  /______________\   Test behaviors at module level
+```
+
+- **Developer Tests (80%)**: Fast, behavior-focused tests at the module API level
+- **Integration Tests (15%)**: Test that modules integrate correctly at boundaries
+- **System Tests (5%)**: End-to-end tests through the complete system
+
+### Avoid the Testing Ice Cream Cone (Anti-Pattern)
+- Many manual tests at the top
+- Heavy reliance on UI/Selenium tests
+- Few developer tests at the bottom
+- This is expensive, slow, and fragile
+
+## Testing Gears - When to Drill Down
+
+### The Five Gears of TDD
+Sometimes you need to temporarily drill into implementation details:
+
+1. **5th Gear (Normal TDD)**: Test behavior, implementation is obvious
+2. **4th Gear (Standard)**: Test behavior, refactor to clean code
+3. **3rd Gear (Exploration)**: Temporarily test internals to understand the problem
+4. **2nd Gear**: Test smaller pieces when stuck
+5. **1st Gear**: Test tiny implementation details when learning
+
+### Using Lower Gears
+When you shift to 3rd gear or lower:
+1. Write tests to help understand the implementation
+2. Use them as scaffolding to guide development
+3. **DELETE these tests after going green**
+4. Keep only the high-level behavior tests
+5. The implementation detail tests are learning aids, not permanent fixtures
+
+Example:
 ```typescript
-// ❌ Testing implementation details
-test('should call parseNote 5 times', () => {
-  // Tests HOW not WHAT
+// Temporary exploration test (DELETE after implementation)
+test('helper: parse date format', () => {
+  // Use to understand date parsing
+  // DELETE once main behavior test passes
 });
 
-// ❌ Conditional test logic
-test('should maybe return results', () => {
-  if (results.length > 0) {
-    expect(results[0]).toBeDefined();
-  }
-  // Tests should be deterministic
-});
-
-// ❌ Sleeping in tests
-test('should update after delay', async () => {
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  // Use mock timers or events instead
-});
-
-// ❌ Large test data in code
-test('should handle content', () => {
-  const content = `
-    500 lines of test content...
-  `;
-  // Use fixtures or generate programmatically
+// Keep this behavior test
+test('returns notes modified after given date', () => {
+  // This stays - it tests required behavior
 });
 ```
+
+## Testing Anti-Patterns
+
+### Critical Anti-Patterns to Avoid
+
+#### 1. Testing Implementation Instead of Behavior
+```typescript
+// ❌ BAD: Testing HOW it works
+test('should call repository.save() twice', () => {
+  expect(mockRepo.save).toHaveBeenCalledTimes(2);
+});
+
+// ✅ GOOD: Testing WHAT it does
+test('should persist user and audit log', async () => {
+  await service.createUser(userData);
+  expect(await service.getUser(id)).toEqual(userData);
+  expect(await service.getAuditLog(id)).toContainEntry('user_created');
+});
+```
+
+#### 2. Heavy Mocking of Internal Dependencies
+```typescript
+// ❌ BAD: Mocking everything
+test('should process order', () => {
+  const mockValidator = mock(Validator);
+  const mockCalculator = mock(Calculator);
+  const mockNotifier = mock(Notifier);
+  // Tests become brittle and coupled to implementation
+});
+
+// ✅ GOOD: Test the module as a whole
+test('should process valid order', async () => {
+  const order = createTestOrder();
+  const result = await orderModule.process(order);
+  expect(result.status).toBe('completed');
+});
+```
+
+#### 3. Making Things Public for Testing
+```typescript
+// ❌ BAD: Breaking encapsulation
+class Service {
+  public validateInternal() { }  // Made public just for testing
+}
+
+// ✅ GOOD: Test through public API
+class Service {
+  private validateInternal() { }  // Stays private
+  public process() {             // Test this behavior
+    this.validateInternal();
+  }
+}
+```
+
+#### 4. Test-Specific Production Code
+```typescript
+// ❌ BAD: if (process.env.NODE_ENV === 'test')
+// ❌ BAD: Using InternalsVisibleTo (C#)
+// ❌ BAD: Special test-only methods or flags
+```
+
+#### 5. Brittle Test Assertions
+```typescript
+// ❌ BAD: Over-specified test
+test('should return formatted result', () => {
+  expect(result).toEqual({
+    id: 123,
+    name: 'Test',
+    created: '2024-01-01T10:00:00.000Z',  // Brittle!
+    internal_flag: true,  // Implementation detail!
+  });
+});
+
+// ✅ GOOD: Test essential behavior
+test('should return user data', () => {
+  expect(result.id).toBeDefined();
+  expect(result.name).toBe('Test');
+  // Don't assert on internals or exact formats
+});
+```
+
+#### 6. Testing Framework Code
+```typescript
+// ❌ BAD: Testing that React/Vue/Angular works
+// ❌ BAD: Testing third-party libraries
+// ❌ BAD: Testing language features
+```
+
+#### 7. Ignoring Test Maintenance
+- Keeping broken tests "to fix later"
+- Commenting out failing tests
+- Using `.skip()` without immediate follow-up
+- Accepting flaky tests as normal
 
 ## Test Naming
 
@@ -378,16 +561,138 @@ test('debug test', async () => {
 - Coverage must not decrease
 - Performance tests must pass
 
+## Ports and Adapters Architecture for Testing
+
+### Architecture Overview
+The Ports and Adapters (Hexagonal) architecture provides clear testing boundaries:
+
+```
+┌─────────────────────────────────────┐
+│         Adapters (Outside)          │
+│  ┌─────────────────────────────┐    │
+│  │   HTTP/GUI    │   Database  │    │
+│  │   Adapters    │   Adapters  │    │
+│  └───────┬───────┴──────┬──────┘    │
+│          │              │           │
+│  ┌───────▼───────┬──────▼──────┐    │
+│  │     Ports    │    Ports     │    │ <- Test Here!
+│  └───────┬───────┴──────┬──────┘    │
+│          │              │           │
+│  ┌───────▼──────────────▼──────┐    │
+│  │                              │    │
+│  │      Domain/Business         │    │
+│  │         Logic                │    │
+│  │    (Technology-Free)         │    │
+│  │                              │    │
+│  └──────────────────────────────┘    │
+└─────────────────────────────────────┘
+```
+
+### Testing at Different Levels
+
+#### 1. Domain/Business Logic Tests (Core)
+- Test pure business behaviors
+- No technology concerns (no DB, no HTTP)
+- These form the bulk of your tests
+- Example: "Calculate search relevance score"
+
+#### 2. Port Tests (Boundaries)
+- Test the contracts/interfaces your domain exposes
+- Mock external adapters if needed
+- Example: "SearchPort returns filtered results"
+
+#### 3. Adapter Tests (Minimal)
+- Only test configuration and setup
+- Don't test third-party code
+- Example: "Database adapter connects with config"
+
+#### 4. Integration Tests (Few)
+- Test that ports and adapters connect correctly
+- Use real dependencies but isolated data
+- Example: "Can persist and retrieve a note"
+
+### Practical Example
+```typescript
+// Domain (test heavily)
+class NoteSearcher {
+  findRelevantNotes(query: string, notes: Note[]): SearchResult[] {
+    // Pure business logic - easy to test
+  }
+}
+
+// Port (test the contract)
+interface SearchPort {
+  search(query: string): Promise<SearchResult[]>;
+}
+
+// Adapter (test minimally)
+class HttpSearchAdapter {
+  constructor(private searchPort: SearchPort) {}
+  
+  async handleRequest(req: Request): Promise<Response> {
+    // Just adapts HTTP to port interface
+    // Test: Does it call the port correctly?
+  }
+}
+```
+
+## BDD and Customer-Facing Tests
+
+### Why We Don't Use Gherkin/Cucumber
+Based on extensive experience, we avoid BDD tools like Gherkin, Cucumber, or FitNesse because:
+
+1. **Customers don't actually read them** - Despite promises, customers rarely engage with these tests
+2. **Translation layer overhead** - Converting natural language to code adds complexity
+3. **Maintenance burden** - Two representations of the same requirement
+4. **False confidence** - Green tests don't mean customers agree with the behavior
+5. **Slow execution** - These tests typically run much slower than developer tests
+
+### Alternative: Behavior-Focused Developer Tests
+Instead, write developer tests that focus on behaviors:
+```typescript
+// Clear behavior description in test name
+test('search returns notes ordered by relevance when multiple matches exist', async () => {
+  // Implement behavior verification
+});
+
+// Group related behaviors
+describe('Note search behavior', () => {
+  test('finds notes by exact title match first', async () => {});
+  test('finds notes by content match second', async () => {});
+  test('excludes notes from ignored folders', async () => {});
+});
+```
+
 ## Test Review Checklist
 
 Before submitting tests:
-- [ ] Tests follow AAA pattern
+- [ ] **Tests verify behaviors, not implementation details**
+- [ ] **Following Red-Green-Refactor cycle properly**
+- [ ] Tests follow AAA pattern (Arrange-Act-Assert)
 - [ ] Tests are isolated and independent
-- [ ] Test names clearly describe behavior
+- [ ] Test names clearly describe the behavior being tested
+- [ ] **No unnecessary mocks** - only mock external dependencies
+- [ ] **Testing at the right level** - module API, not internal classes
+- [ ] **No tests for refactored internals** - only behavior tests
 - [ ] Edge cases are covered
 - [ ] No hardcoded delays or sleeps
-- [ ] Mocks are properly typed
 - [ ] No console.log statements
 - [ ] Tests run fast (<5s for unit test suite)
 - [ ] Integration tests are clearly marked
-- [ ] Coverage meets minimum requirements
+- [ ] **Exploratory tests have been deleted** after implementation
+- [ ] Coverage meets minimum requirements (80% for critical paths)
+- [ ] **No test-specific production code**
+- [ ] **Encapsulation preserved** - no public methods just for testing
+
+## Summary of Core Principles
+
+1. **Test behaviors and requirements**, not methods and classes
+2. **Red-Green-Refactor**: Fail first, pass quickly, refactor without new tests  
+3. **The unit of isolation is the test**, not the class under test
+4. **Test at module boundaries**, not internal implementation
+5. **Minimize mocking** - only mock external dependencies when necessary
+6. **Delete exploratory tests** after using them to understand implementation
+7. **Refactoring never requires new tests** - behavior remains the same
+8. **Speed and isolation over purity** - pragmatic choices for fast feedback
+9. **Customer-facing tests are usually not worth it** - focus on developer tests
+10. **Keep tests maintainable** - they should enable change, not prevent it

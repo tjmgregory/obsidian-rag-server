@@ -17,13 +17,21 @@ Building a standalone RAG (Retrieval-Augmented Generation) MCP server that provi
 ## Development Standards
 
 **IMPORTANT**: All code must follow the standards defined in:
-- `docs/coding-standards.md` - Required coding practices
+- `docs/coding-standards.md` - Required coding practices  
 - `docs/testing-standards.md` - TDD methodology and test requirements
 
-Key principles:
-- Use Test-Driven Development (TDD) - write tests first
-- Dependency injection for all services
-- Mock file system for unit tests
+### Critical Testing Principles:
+- **Test BEHAVIORS, not implementation details** - Test what the system does, not how
+- **Red-Green-Refactor cycle** - Fail first, pass quickly (dirty code OK), then refactor without new tests
+- **Test at module boundaries** - Test the public API/exports, not internal classes
+- **Minimize mocking** - Only mock external dependencies when necessary for speed/isolation
+- **Unit of isolation is the TEST**, not the class under test
+- **Delete exploratory tests** - Use them to understand, then remove them
+
+### Key Development Principles:
+- Use Test-Driven Development (TDD) with proper Red-Green-Refactor
+- Dependency injection for testability (not for IoC containers)
+- Mock file system for fast unit tests
 - TypeScript strict mode always
 - No Vite/Vitest - use Bun's built-in test runner
 
