@@ -773,15 +773,60 @@ private cache = new Map();
 
 ### Commit Message Format
 
+We use [Conventional Commits](https://www.conventionalcommits.org/) format, which is **automatically enforced** by git hooks.
+
+#### Format
 ```
 type(scope): description
+```
 
+#### Automated Tools
+
+1. **Interactive commits** (recommended):
+   ```bash
+   bun run commit
+   # or
+   npx cz
+   ```
+   This launches an interactive prompt that guides you through creating a properly formatted commit.
+
+2. **Manual commits**:
+   ```bash
+   git commit -m "feat(search): add fuzzy matching support"
+   ```
+   The commit-msg hook will validate your message and reject it if it doesn't follow conventions.
+
+#### Valid Types
+- `feat`: A new feature
+- `fix`: A bug fix  
+- `docs`: Documentation only changes
+- `style`: Formatting changes (no code change)
+- `refactor`: Code change that neither fixes nor adds features
+- `perf`: Performance improvement
+- `test`: Adding or correcting tests
+- `build`: Build process or dependency changes
+- `ci`: CI configuration changes
+- `chore`: Other changes that don't modify src or test files
+- `revert`: Reverts a previous commit
+
+#### Examples
+```bash
 feat(search): add fuzzy matching support
 fix(cache): prevent memory leak on file deletion
 test(vault): add edge cases for special characters
 docs(api): update MCP endpoint documentation
 refactor(parser): extract frontmatter logic
+perf(search): optimize regex patterns for 50% speed boost
+build(deps): upgrade to bun 1.2.0
+chore(archive): move completed guides to archive folder
 ```
+
+#### Validation
+All commits are automatically validated by:
+- **commitlint**: Ensures message follows conventional format
+- **commit-msg hook**: Rejects non-conforming commits with helpful guidance
+
+If your commit is rejected, you'll see clear instructions on how to fix it.
 
 ### Branch Naming
 

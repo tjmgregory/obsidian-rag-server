@@ -14,7 +14,14 @@
     "lint:fix": "biome check --apply .",
     "format": "biome format --write .",
     "check": "biome check . && bunx tsc --noEmit && bun test",
-    "build": "bun build src/index.ts --target=bun --outfile=dist/server.js"
+    "build": "bun build src/index.ts --target=bun --outfile=dist/server.js",
+    "commit": "cz",
+    "commitlint": "commitlint --edit"
+  },
+  "config": {
+    "commitizen": {
+      "path": "./node_modules/cz-conventional-changelog"
+    }
   },
   "keywords": ["obsidian", "mcp", "rag", "retrieval", "knowledge-base"],
   "author": "Theo",
@@ -26,8 +33,12 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^1.8.3",
+    "@commitlint/cli": "^19.8.1",
+    "@commitlint/config-conventional": "^19.8.1",
     "@types/bun": "latest",
     "@types/node": "^20.0.0",
+    "commitizen": "^4.3.1",
+    "cz-conventional-changelog": "^3.3.0",
     "typescript": "^5.3.0"
   }
 }
