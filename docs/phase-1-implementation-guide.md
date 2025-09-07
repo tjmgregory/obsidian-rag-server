@@ -103,11 +103,15 @@ We follow **Hexagonal Architecture** (Ports and Adapters) to ensure clean separa
 src/
 ├── domain/                 # Pure business logic (no dependencies)
 │   ├── entities/
-│   │   ├── Note.ts        # Note entity
-│   │   └── SearchResult.ts
+│   │   ├── Note.ts
+│   │   ├── Note.test.ts   # Co-located test
+│   │   ├── SearchResult.ts
+│   │   └── SearchResult.test.ts
 │   └── services/
-│       ├── NoteSearcher.ts # Domain service for searching
-│       └── NoteRanker.ts   # Domain service for ranking
+│       ├── NoteSearcher.ts
+│       ├── NoteSearcher.test.ts
+│       ├── NoteRanker.ts
+│       └── NoteRanker.test.ts
 │
 ├── application/            # Application layer
 │   ├── ports/
@@ -121,25 +125,42 @@ src/
 │   │       └── CachePort.ts
 │   └── use-cases/         # Use case implementations
 │       ├── SearchVaultUseCaseImpl.ts
+│       ├── SearchVaultUseCaseImpl.test.ts
 │       ├── GetNoteUseCaseImpl.ts
-│       └── ListNotesUseCaseImpl.ts
+│       ├── GetNoteUseCaseImpl.test.ts
+│       ├── ListNotesUseCaseImpl.ts
+│       └── ListNotesUseCaseImpl.test.ts
 │
 ├── infrastructure/         # Adapters and external concerns
 │   ├── adapters/
 │   │   ├── primary/       # Driving adapters
-│   │   │   └── MCPServerAdapter.ts
+│   │   │   ├── MCPServerAdapter.ts
+│   │   │   └── MCPServerAdapter.test.ts
 │   │   └── secondary/     # Driven adapters
 │   │       ├── FileNoteRepository.ts
+│   │       ├── FileNoteRepository.test.ts
 │   │       ├── BunFileSystemAdapter.ts
-│   │       └── InMemoryCacheAdapter.ts
+│   │       ├── BunFileSystemAdapter.test.ts
+│   │       ├── InMemoryCacheAdapter.ts
+│   │       └── InMemoryCacheAdapter.test.ts
 │   ├── config/
 │   │   └── ConfigLoader.ts
 │   └── composition/       # Dependency injection
 │       └── CompositionRoot.ts
 │
-├── index.ts               # Entry point - wires everything
-└── types/                 # Shared type definitions
-    └── index.ts
+├── shared/                # Shared utilities
+│   └── test-helpers/      # Test utilities
+│       ├── MockFileSystem.ts
+│       ├── TestDataBuilder.ts
+│       └── InMemoryNoteRepository.ts
+│
+└── index.ts               # Entry point - wires everything
+
+test/                      # Integration tests only
+└── integration/
+    ├── mcp-protocol.integration.test.ts
+    ├── file-watching.integration.test.ts
+    └── vault-operations.integration.test.ts
 ```
 
 ## Implementation Steps
@@ -162,8 +183,8 @@ mkdir -p src/application/ports/{primary,secondary}
 mkdir -p src/application/use-cases
 mkdir -p src/infrastructure/adapters/{primary,secondary}
 mkdir -p src/infrastructure/{config,composition}
-mkdir -p src/types
-mkdir -p test/{domain,application,infrastructure,mocks}
+mkdir -p src/shared/test-helpers
+mkdir -p test/integration  # Only integration tests go here
 
 # Install dependencies
 bun add @modelcontextprotocol/sdk gray-matter chokidar

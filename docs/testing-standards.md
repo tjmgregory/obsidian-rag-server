@@ -56,27 +56,109 @@ This three-step cycle is the foundation of effective TDD:
 
 ## Test Organization
 
-### File Structure
+### Co-located Test Structure (Recommended)
+
+**Co-locate unit and behavior tests with source code** for better maintainability and discoverability:
+
 ```
-test/
-├── tools/              # MCP tool tests
-│   ├── search-vault.test.ts
-│   ├── get-note.test.ts
-│   └── list-notes.test.ts
-├── services/           # Service layer tests
-│   ├── vault-service.test.ts
-│   └── file-watcher.test.ts
-├── mocks/              # Shared mock implementations
-│   └── mock-file-system.ts
-├── helpers/            # Test utilities
-│   └── test-data.ts
-└── integration/        # Integration tests (sparingly)
-    └── real-vault.test.ts
+src/
+├── domain/
+│   ├── entities/
+│   │   ├── Note.ts
+│   │   ├── Note.test.ts              # Co-located domain test
+│   │   ├── SearchResult.ts
+│   │   └── SearchResult.test.ts      # Co-located domain test
+│   └── services/
+│       ├── NoteSearcher.ts
+│       └── NoteSearcher.test.ts      # Co-located service test
+├── application/
+│   └── use-cases/
+│       ├── SearchVaultUseCaseImpl.ts
+│       └── SearchVaultUseCaseImpl.test.ts  # Co-located use case test
+├── infrastructure/
+│   └── adapters/
+│       ├── primary/
+│       │   ├── MCPServerAdapter.ts
+│       │   └── MCPServerAdapter.test.ts    # Co-located adapter test
+│       └── secondary/
+│           ├── FileNoteRepository.ts
+│           └── FileNoteRepository.test.ts  # Co-located repository test
+└── shared/
+    └── test-helpers/           # Shared test utilities
+        ├── MockFileSystem.ts   # Reusable mock implementations
+        └── TestDataBuilder.ts  # Test data factories
+
+test/                           # Separate folder for integration tests only
+└── integration/
+    ├── mcp-protocol.integration.test.ts
+    ├── file-system.integration.test.ts
+    └── end-to-end.integration.test.ts
 ```
 
-### Test File Naming
-- Test files must match source files: `vault-service.ts` → `vault-service.test.ts`
-- Integration tests clearly marked: `real-vault.integration.test.ts`
+### Why Co-location Works Well
+
+1. **Immediate Visibility**: Tests are right there when you open a file
+2. **Easier Refactoring**: Moving source files automatically moves tests
+3. **Reinforces Testing Culture**: Can't ignore tests when they're adjacent
+4. **Clear Relationships**: Obvious which test covers which module
+5. **Follows Modern Practices**: Jest, Vitest, Deno all support this pattern
+
+### Test File Naming Conventions
+
+- **Unit/Behavior Tests**: `[name].test.ts` (co-located)
+- **Integration Tests**: `[feature].integration.test.ts` (in test/ folder)
+- **End-to-End Tests**: `[scenario].e2e.test.ts` (in test/ folder)
+
+### When to Separate Tests
+
+Only separate tests from source when they:
+- Test multiple modules together (integration tests)
+- Require real external resources (database, file system)
+- Test complete user scenarios (end-to-end)
+- Need special test environment setup
+
+### Build Configuration
+
+Ensure your build excludes test files:
+```typescript
+// tsconfig.build.json
+{
+  "extends": "./tsconfig.json",
+  "exclude": [
+    "**/*.test.ts",
+    "**/*.integration.test.ts",
+    "test/**/*"
+  ]
+}
+```
+
+### Migration from Separate Test Directory
+
+If you have existing tests in a separate `test/` directory, migrate them gradually:
+
+1. **Move domain tests first** - These are simplest and benefit most from co-location
+2. **Move use case tests** - Keep them with their use cases
+3. **Move adapter tests** - Co-locate with adapters
+4. **Keep integration tests separate** - They belong in `test/integration/`
+
+Example migration:
+```bash
+# Move a domain test
+mv test/services/NoteSearcher.test.ts src/domain/services/
+
+# Move a use case test  
+mv test/tools/search-vault.test.ts src/application/use-cases/SearchVaultUseCaseImpl.test.ts
+
+# Keep integration test where it is
+# test/integration/real-vault.test.ts stays put
+```
+
+### Benefits You'll See
+
+- **Faster TDD cycle**: Test is right there, no navigation needed
+- **Better test coverage**: Hard to ignore tests when they're adjacent
+- **Clearer architecture**: Can immediately see which layers have good test coverage
+- **Easier refactoring**: Move a module, its test comes along automatically
 
 ## Test Structure
 
