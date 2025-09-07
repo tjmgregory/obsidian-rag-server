@@ -1,9 +1,11 @@
+import type { ObsidianFrontmatter } from '../types/frontmatter';
+
 export class Note {
   constructor(
     public readonly path: string,
     public readonly title: string,
     public readonly content: string,
-    public readonly frontmatter: Record<string, unknown>,
+    public readonly frontmatter: ObsidianFrontmatter,
     public readonly tags: string[],
     public readonly links: string[],
     public readonly createdAt: Date,

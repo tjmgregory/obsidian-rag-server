@@ -2,6 +2,7 @@ import matter from 'gray-matter';
 import type { FileSystemPort } from '../../../application/ports/secondary/file-system-port';
 import type { NoteRepository } from '../../../application/ports/secondary/note-repository';
 import { Note } from '../../../domain/entities/note';
+import { normalizeFrontmatter } from '../../../domain/types/frontmatter';
 
 export class FileNoteRepository implements NoteRepository {
   private notesCache: Note[] = [];
@@ -99,26 +100,34 @@ export class FileNoteRepository implements NoteRepository {
   ): Promise<Note | null> {
     try {
       const content = await this.fileSystem.readFile(fullPath);
-      const { data: frontmatter, content: noteContent } = matter(content);
+      const { data: rawFrontmatter, content: noteContent } = matter(content);
+
+      // Normalize frontmatter for consistent handling
+      const normalized = normalizeFrontmatter(rawFrontmatter);
 
       // Extract title from frontmatter or first heading
-      const title = this.extractTitle(frontmatter, noteContent);
+      const title = this.extractTitle(rawFrontmatter, noteContent);
 
-      // Extract tags from frontmatter and content
-      const tags = this.extractTags(frontmatter, noteContent);
+      // Combine tags from frontmatter and content
+      const contentTags = this.extractContentTags(noteContent);
+      const allTags = [...new Set([...normalized.tags, ...contentTags])];
 
       // Extract links from content
       const links = this.extractLinks(noteContent);
+
+      // Use dates from frontmatter if available, otherwise use file stats
+      const createdAt = normalized.created || stats.createdAt;
+      const modifiedAt = normalized.updated || stats.modifiedAt;
 
       return new Note(
         relativePath,
         title,
         noteContent,
-        frontmatter,
-        tags,
+        rawFrontmatter, // Store raw frontmatter for full access
+        allTags,
         links,
-        stats.createdAt,
-        stats.modifiedAt,
+        createdAt,
+        modifiedAt,
       );
     } catch (error) {
       console.error(`Error loading note ${fullPath}:`, error);
@@ -143,24 +152,10 @@ export class FileNoteRepository implements NoteRepository {
     return 'Untitled';
   }
 
-  private extractTags(frontmatter: Record<string, unknown>, content: string): string[] {
+  private extractContentTags(content: string): string[] {
     const tags = new Set<string>();
 
-    // Extract from frontmatter
-    // biome-ignore lint/complexity/useLiteralKeys: TypeScript requires bracket notation for index signatures
-    if (frontmatter['tags']) {
-      // biome-ignore lint/complexity/useLiteralKeys: TypeScript requires bracket notation for index signatures
-      if (Array.isArray(frontmatter['tags'])) {
-        // biome-ignore lint/complexity/useLiteralKeys: TypeScript requires bracket notation for index signatures
-        for (const tag of frontmatter['tags']) {
-          if (typeof tag === 'string') {
-            tags.add(tag);
-          }
-        }
-      }
-    }
-
-    // Extract inline tags from content
+    // Extract inline tags from content (#tag format)
     const tagMatches = content.matchAll(/#([a-zA-Z0-9_-]+)/g);
     for (const match of tagMatches) {
       if (match[1]) {
