@@ -161,6 +161,46 @@ test/                      # Test-specific code
     └── vault-operations.integration.test.ts
 ```
 
+## TDD Implementation Approach
+
+### Our Development Process
+
+**ALWAYS follow Red-Green-Refactor:**
+
+1. **RED**: Write a failing test for the behavior you want
+2. **GREEN**: Write the simplest code that makes the test pass (dirty code is OK!)
+3. **REFACTOR**: Clean up the code without adding new tests
+
+### Key Principles We Follow
+
+- **Test behaviors, not implementation details**
+- **Start with domain tests** (they need no mocks!)
+- **Mock only at boundaries** (secondary ports)
+- **Co-locate tests with source code**
+- **Integration tests go in test/ folder**
+
+### Order of Implementation
+
+1. **Domain Layer First** (Pure logic, no dependencies)
+   - Write tests for entities and services
+   - Implement with simple code
+   - Refactor for cleanliness
+
+2. **Application Layer** (Use cases)
+   - Test with mock repositories
+   - Wire domain services together
+   - Keep orchestration simple
+
+3. **Infrastructure Layer** (Adapters)
+   - Test adapters minimally (they're mostly glue)
+   - Focus on configuration and setup
+   - Real I/O goes here
+
+4. **Integration Tests**
+   - Test complete flows
+   - Use in-memory implementations
+   - Verify everything connects
+
 ## Implementation Steps
 
 ### Step 1: Project Setup with Hexagonal Structure
@@ -206,15 +246,65 @@ Create `config.json`:
 - Ignored folders prevent indexing of non-content directories
 - Adjust `cacheSize` based on your vault size and available memory
 
-### Step 3: Domain Entities and Value Objects
+### Step 3: Start with Domain Tests (TDD Red Phase)
 
-Following hexagonal architecture, we start with pure domain entities that have no external dependencies.
+Following TDD, we write tests FIRST for the behaviors we want, then implement.
 
-#### Domain Entities
+#### Test First: Note Entity Behaviors
 
-Create `src/domain/entities/note.ts`:
+Create `src/domain/entities/note.test.ts`:
 ```typescript
-// Pure domain entity - no infrastructure concerns
+import { describe, test, expect } from 'bun:test';
+import { Note } from './note';
+
+describe('Note entity', () => {
+  test('should detect if note has a specific tag', () => {
+    const note = new Note(
+      'test.md',
+      'Test Note',
+      'Content',
+      {},
+      ['javascript', 'testing'],
+      [],
+      new Date(),
+      new Date(),
+    );
+    
+    expect(note.hasTag('javascript')).toBe(true);
+    expect(note.hasTag('JavaScript')).toBe(true); // Case insensitive
+    expect(note.hasTag('python')).toBe(false);
+  });
+  
+  test('should match query in title or content', () => {
+    const note = new Note(
+      'test.md',
+      'JavaScript Guide',
+      'Learn about TypeScript and JavaScript',
+      {},
+      [],
+      [],
+      new Date(),
+      new Date(),
+    );
+    
+    expect(note.matchesQuery('JavaScript')).toBe(true);
+    expect(note.matchesQuery('typescript')).toBe(true); // Case insensitive
+    expect(note.matchesQuery('python')).toBe(false);
+  });
+});
+```
+
+**Run the test - it should FAIL (Red phase):**
+```bash
+bun test src/domain/entities/note.test.ts
+# ❌ Tests fail - Note class doesn't exist yet
+```
+
+#### Green Phase: Minimal Implementation
+
+NOW create `src/domain/entities/note.ts` with the simplest code to pass:
+```typescript
+// Quick and dirty - just make tests pass!
 export class Note {
   constructor(
     public readonly path: string,
@@ -228,10 +318,13 @@ export class Note {
   ) {}
   
   hasTag(tag: string): boolean {
-    return this.tags.includes(tag.toLowerCase());
+    // Simplest thing that works
+    const lower = tag.toLowerCase();
+    return this.tags.some(t => t.toLowerCase() === lower);
   }
   
   matchesQuery(query: string): boolean {
+    // Quick implementation
     const q = query.toLowerCase();
     return this.title.toLowerCase().includes(q) ||
            this.content.toLowerCase().includes(q);
@@ -239,7 +332,57 @@ export class Note {
 }
 ```
 
-Create `src/domain/entities/search-result.ts`:
+**Run tests again - they should PASS (Green phase):**
+```bash
+bun test src/domain/entities/note.test.ts
+# ✅ Tests pass!
+```
+
+#### Refactor Phase: Clean Up (Optional)
+
+The implementation is already clean for this simple entity, but if needed, refactor WITHOUT adding new tests.
+
+#### Test First: SearchResult Behaviors
+
+Create `src/domain/entities/search-result.test.ts`:
+```typescript
+import { describe, test, expect } from 'bun:test';
+import { SearchResult } from './search-result';
+import { Note } from './note';
+
+describe('SearchResult entity', () => {
+  const testNote = new Note(
+    'test.md',
+    'Test',
+    'This is a long content with the word JavaScript in the middle of it.',
+    {},
+    [],
+    [],
+    new Date(),
+    new Date(),
+  );
+  
+  test('should create search result with snippet around query match', () => {
+    const result = SearchResult.create(testNote, 75, 'JavaScript');
+    
+    expect(result.note).toBe(testNote);
+    expect(result.score).toBe(75);
+    expect(result.snippet).toContain('JavaScript');
+    expect(result.snippet).toContain('...');
+  });
+  
+  test('should handle query not found in content', () => {
+    const result = SearchResult.create(testNote, 10, 'Python');
+    
+    expect(result.snippet).toContain('This is a long content');
+    expect(result.snippet).toEndWith('...');
+  });
+});
+```
+
+**Red → Green → Refactor:**
+
+Then create `src/domain/entities/search-result.ts`:
 ```typescript
 import { Note } from './note';
 
@@ -251,60 +394,154 @@ export class SearchResult {
   ) {}
   
   static create(note: Note, score: number, query: string): SearchResult {
-    const snippet = this.extractSnippet(note.content, query);
-    return new SearchResult(note, score, snippet);
-  }
-  
-  private static extractSnippet(content: string, query: string): string {
-    // Pure logic for snippet extraction
+    // Quick implementation to pass tests
+    const content = note.content;
     const index = content.toLowerCase().indexOf(query.toLowerCase());
-    if (index === -1) return content.slice(0, 150) + '...';
     
-    const start = Math.max(0, index - 50);
-    const end = Math.min(content.length, index + query.length + 50);
-    return '...' + content.slice(start, end) + '...';
+    let snippet: string;
+    if (index === -1) {
+      snippet = content.slice(0, 150) + '...';
+    } else {
+      const start = Math.max(0, index - 50);
+      const end = Math.min(content.length, index + query.length + 50);
+      snippet = '...' + content.slice(start, end) + '...';
+    }
+    
+    return new SearchResult(note, score, snippet);
   }
 }
 ```
 
-#### Domain Services
+### Step 4: Domain Service - Search Behavior
+
+#### Test First: Note Search Behaviors
+
+Create `src/domain/services/note-searcher.test.ts`:
+```typescript
+import { describe, test, expect } from 'bun:test';
+import { NoteSearcher } from './note-searcher';
+import { Note } from '../entities/note';
+
+describe('NoteSearcher', () => {
+  const searcher = new NoteSearcher();
+  
+  const notes = [
+    new Note('exact.md', 'JavaScript', 'Content', {}, [], [], new Date(), new Date()),
+    new Note('partial.md', 'Guide', 'Learn JavaScript here', {}, [], [], new Date(), new Date()),
+    new Note('tagged.md', 'Tagged', 'Content', {}, ['javascript'], [], new Date(), new Date()),
+    new Note('unrelated.md', 'Python', 'Python content', {}, [], [], new Date(), new Date()),
+  ];
+  
+  test('returns empty array for empty query', () => {
+    const results = searcher.search(notes, '');
+    expect(results).toEqual([]);
+  });
+  
+  test('finds notes matching query', () => {
+    const results = searcher.search(notes, 'JavaScript');
+    
+    expect(results).toHaveLength(3);
+    expect(results[0].note.path).toBe('exact.md'); // Title match scores highest
+  });
+  
+  test('ranks exact title matches highest', () => {
+    const results = searcher.search(notes, 'JavaScript');
+    
+    expect(results[0].note.title).toBe('JavaScript');
+    expect(results[0].score).toBeGreaterThan(results[1].score);
+  });
+  
+  test('respects search limit', () => {
+    const results = searcher.search(notes, 'JavaScript', 2);
+    expect(results).toHaveLength(2);
+  });
+  
+  test('includes tag matches in results', () => {
+    const results = searcher.search(notes, 'javascript');
+    const paths = results.map(r => r.note.path);
+    
+    expect(paths).toContain('tagged.md');
+  });
+});
+```
+
+#### Green Phase: Quick Implementation
 
 Create `src/domain/services/note-searcher.ts`:
 ```typescript
 import { Note } from '../entities/note';
 import { SearchResult } from '../entities/search-result';
 
-// Pure domain service - no I/O, just business logic
+export class NoteSearcher {
+  search(notes: Note[], query: string, limit: number = 50): SearchResult[] {
+    // Quick and dirty - just pass the tests!
+    if (!query.trim()) return [];
+    
+    const q = query.toLowerCase();
+    const scored = notes
+      .filter(note => {
+        // Check if matches
+        return note.title.toLowerCase().includes(q) ||
+               note.content.toLowerCase().includes(q) ||
+               note.tags.some(tag => tag.toLowerCase().includes(q));
+      })
+      .map(note => {
+        // Calculate score - simple version
+        let score = 0;
+        const titleLower = note.title.toLowerCase();
+        
+        if (titleLower === q) score = 100;
+        else if (titleLower.includes(q)) score = 50;
+        
+        if (note.content.toLowerCase().includes(q)) score += 10;
+        if (note.tags.some(tag => tag.toLowerCase().includes(q))) score += 30;
+        
+        return SearchResult.create(note, score, query);
+      });
+    
+    // Sort and limit
+    return scored
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit);
+  }
+}
+```
+
+#### Refactor Phase: Extract Score Calculation
+
+NOW we can refactor to cleaner code (tests still pass):
+```typescript
 export class NoteSearcher {
   search(notes: Note[], query: string, limit: number = 50): SearchResult[] {
     if (!query.trim()) return [];
     
-    const results = notes
-      .filter(note => note.matchesQuery(query))
-      .map(note => {
-        const score = this.calculateScore(note, query);
-        return SearchResult.create(note, score, query);
-      })
+    return notes
+      .filter(note => this.matches(note, query))
+      .map(note => SearchResult.create(note, this.calculateScore(note, query), query))
       .sort((a, b) => b.score - a.score)
       .slice(0, limit);
-      
-    return results;
+  }
+  
+  private matches(note: Note, query: string): boolean {
+    const q = query.toLowerCase();
+    return note.matchesQuery(query) || 
+           note.tags.some(tag => tag.toLowerCase().includes(q));
   }
   
   private calculateScore(note: Note, query: string): number {
     const q = query.toLowerCase();
     let score = 0;
     
-    // Title match is worth more
-    if (note.title.toLowerCase().includes(q)) {
-      score += note.title.toLowerCase() === q ? 100 : 50;
-    }
+    // Title scoring
+    const titleLower = note.title.toLowerCase();
+    if (titleLower === q) score += 100;
+    else if (titleLower.includes(q)) score += 50;
     
-    // Content matches
-    const contentMatches = (note.content.toLowerCase().match(new RegExp(q, 'g')) || []).length;
-    score += contentMatches * 10;
+    // Content scoring
+    const matches = (note.content.toLowerCase().match(new RegExp(q, 'g')) || []).length;
+    score += matches * 10;
     
-    // Tag matches
+    // Tag scoring
     if (note.tags.some(tag => tag.toLowerCase().includes(q))) {
       score += 30;
     }
@@ -314,41 +551,154 @@ export class NoteSearcher {
 }
 ```
 
-### Step 4: Vault Service Implementation
+### Step 5: Application Layer - Use Cases with TDD
 
-Create `src/services/vault-service.ts`:
+#### Test First: Search Vault Use Case
 
-Key responsibilities:
-- Read all markdown files from vault directory
-- Parse frontmatter using gray-matter
-- Extract tags from content (#tag syntax)
-- Extract wikilinks ([[link]] syntax)
-- Implement keyword search with simple ranking
-- Watch for file changes with chokidar
-- Cache parsed notes in memory
-
+Create `src/application/use-cases/search-vault-use-case-impl.test.ts`:
 ```typescript
-export class VaultService {
-  private cache: Map<string, Note> = new Map();
-  private watcher: FSWatcher;
+import { describe, test, expect, beforeEach } from 'bun:test';
+import { SearchVaultUseCaseImpl } from './search-vault-use-case-impl';
+import { Note } from '../../domain/entities/note';
+import type { NoteRepository } from '../ports/secondary/note-repository';
+
+describe('SearchVaultUseCase', () => {
+  let useCase: SearchVaultUseCaseImpl;
+  let mockRepository: NoteRepository;
   
-  constructor(private config: VaultConfig) {}
+  beforeEach(() => {
+    // Create a simple mock - no fancy mocking library needed!
+    mockRepository = {
+      findAll: async () => [
+        new Note('test1.md', 'JavaScript Guide', 'Learn JS', {}, [], [], new Date(), new Date()),
+        new Note('test2.md', 'Python Guide', 'Learn Python', {}, [], [], new Date(), new Date()),
+      ],
+      findByPath: async () => null,
+      findByFolder: async () => [],
+      getAllTags: async () => new Map(),
+      getRecentlyModified: async () => [],
+    };
+    
+    useCase = new SearchVaultUseCaseImpl(mockRepository);
+  });
   
-  async initialize(): Promise<void>
-  async getAllNotes(): Promise<Note[]>
-  async searchNotes(query: string, limit?: number): Promise<SearchResult[]>
-  async getNote(path: string): Promise<Note | null>
-  async listNotes(folder?: string): Promise<Note[]>
-  async getTags(): Promise<string[]>
+  test('searches notes and returns ranked results', async () => {
+    const results = await useCase.execute('JavaScript');
+    
+    expect(results).toHaveLength(1);
+    expect(results[0].note.title).toBe('JavaScript Guide');
+  });
   
-  private parseNote(filePath: string): Promise<Note>
-  private extractTags(content: string): string[]
-  private extractLinks(content: string): string[]
-  private scoreMatch(note: Note, query: string): number
+  test('returns empty array when no matches', async () => {
+    const results = await useCase.execute('Ruby');
+    expect(results).toEqual([]);
+  });
+  
+  test('respects limit parameter', async () => {
+    const results = await useCase.execute('Guide', 1);
+    expect(results).toHaveLength(1);
+  });
+});
+```
+
+#### Green Phase: Implement Use Case
+
+Create `src/application/use-cases/search-vault-use-case-impl.ts`:
+```typescript
+import { SearchVaultUseCase } from '../ports/primary/search-vault-use-case';
+import { NoteRepository } from '../ports/secondary/note-repository';
+import { NoteSearcher } from '../../domain/services/note-searcher';
+import { SearchResult } from '../../domain/entities/search-result';
+
+export class SearchVaultUseCaseImpl implements SearchVaultUseCase {
+  private searcher = new NoteSearcher();
+  
+  constructor(private repository: NoteRepository) {}
+  
+  async execute(query: string, limit: number = 50): Promise<SearchResult[]> {
+    // Simple implementation - just wire together domain and repository
+    const notes = await this.repository.findAll();
+    return this.searcher.search(notes, query, limit);
+  }
 }
 ```
 
-### Step 5: MCP Server Implementation
+#### Define the Ports (Interfaces)
+
+Create `src/application/ports/primary/search-vault-use-case.ts`:
+```typescript
+import { SearchResult } from '../../../domain/entities/search-result';
+
+export interface SearchVaultUseCase {
+  execute(query: string, limit?: number): Promise<SearchResult[]>;
+}
+```
+
+Create `src/application/ports/secondary/note-repository.ts`:
+```typescript
+import { Note } from '../../../domain/entities/note';
+
+export interface NoteRepository {
+  findAll(): Promise<Note[]>;
+  findByPath(path: string): Promise<Note | null>;
+  findByFolder(folder: string): Promise<Note[]>;
+  getAllTags(): Promise<Map<string, number>>;
+  getRecentlyModified(limit: number): Promise<Note[]>;
+}
+```
+
+### Step 6: Infrastructure Layer - Adapters
+
+#### Test Helper: In-Memory Repository for Testing
+
+Create `test/helpers/in-memory-note-repository.ts`:
+```typescript
+import type { NoteRepository } from '../../src/application/ports/secondary/note-repository';
+import { Note } from '../../src/domain/entities/note';
+
+export class InMemoryNoteRepository implements NoteRepository {
+  private notes: Note[] = [];
+  
+  async findAll(): Promise<Note[]> {
+    return [...this.notes];
+  }
+  
+  async findByPath(path: string): Promise<Note | null> {
+    return this.notes.find(n => n.path === path) || null;
+  }
+  
+  async findByFolder(folder: string): Promise<Note[]> {
+    return this.notes.filter(n => n.path.startsWith(folder));
+  }
+  
+  async getAllTags(): Promise<Map<string, number>> {
+    const tags = new Map<string, number>();
+    for (const note of this.notes) {
+      for (const tag of note.tags) {
+        tags.set(tag, (tags.get(tag) || 0) + 1);
+      }
+    }
+    return tags;
+  }
+  
+  async getRecentlyModified(limit: number): Promise<Note[]> {
+    return [...this.notes]
+      .sort((a, b) => b.modified.getTime() - a.modified.getTime())
+      .slice(0, limit);
+  }
+  
+  // Test helper methods
+  seed(notes: Note[]): void {
+    this.notes = notes;
+  }
+  
+  clear(): void {
+    this.notes = [];
+  }
+}
+```
+
+### Step 7: MCP Server Implementation
 
 Create `src/mcp/server.ts`:
 
@@ -414,7 +764,62 @@ Create `src/mcp/server.ts`:
 - ✅ Includes basic metadata (path, title, modified)
 - ✅ Updates in real-time with file changes
 
-### Step 6: Main Entry Point
+### Step 8: Integration - Wiring Everything Together
+
+#### Integration Test First
+
+Create `test/integration/search-flow.integration.test.ts`:
+```typescript
+import { describe, test, expect, beforeEach } from 'bun:test';
+import { SearchVaultUseCaseImpl } from '../../src/application/use-cases/search-vault-use-case-impl';
+import { InMemoryNoteRepository } from '../helpers/in-memory-note-repository';
+import { Note } from '../../src/domain/entities/note';
+
+describe('Search flow integration', () => {
+  let repository: InMemoryNoteRepository;
+  let searchUseCase: SearchVaultUseCaseImpl;
+  
+  beforeEach(() => {
+    repository = new InMemoryNoteRepository();
+    searchUseCase = new SearchVaultUseCaseImpl(repository);
+    
+    // Seed test data
+    repository.seed([
+      new Note(
+        'projects/web-app.md',
+        'Web App Project',
+        'Building a React application with TypeScript',
+        { status: 'active' },
+        ['javascript', 'react', 'typescript'],
+        [],
+        new Date('2024-01-15'),
+        new Date('2024-01-01'),
+      ),
+      new Note(
+        'notes/typescript-tips.md',
+        'TypeScript Tips',
+        'Advanced TypeScript patterns and tricks',
+        {},
+        ['typescript', 'programming'],
+        [],
+        new Date('2024-01-10'),
+        new Date('2024-01-05'),
+      ),
+    ]);
+  });
+  
+  test('complete search flow works end-to-end', async () => {
+    const results = await searchUseCase.execute('TypeScript');
+    
+    expect(results).toHaveLength(2);
+    expect(results[0].note.title).toBe('TypeScript Tips'); // Exact title match
+    expect(results[0].score).toBeGreaterThan(results[1].score);
+    expect(results[0].snippet).toContain('TypeScript');
+  });
+});
+```
+
+### Step 9: Main Entry Point
 
 Create `src/index.ts`:
 
