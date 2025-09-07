@@ -2,7 +2,7 @@
 
 ## Implementation Progress Tracker
 
-### 🎯 Current Status: Building Application Layer ✅
+### 🎯 Current Status: Building Infrastructure Layer
 
 #### Domain Layer (Pure Business Logic) ✅
 - [x] **Note Entity** 
@@ -41,11 +41,12 @@
   - [x] Implementation: Note listing logic
 
 #### Infrastructure Layer (Adapters)
-- [ ] **FileNoteRepository**
-  - [ ] Test: Load notes from file system
-  - [ ] Test: Parse frontmatter
-  - [ ] Test: Extract tags and links
-  - [ ] Implementation: File system integration
+- [x] **FileNoteRepository**
+  - [x] Test: Load notes from file system
+  - [x] Test: Parse frontmatter
+  - [x] Test: Extract tags and links
+  - [x] Test: Ignore specified folders
+  - [x] Implementation: File system integration with gray-matter
 - [ ] **InMemoryCacheAdapter**
   - [ ] Test: Cache hit/miss
   - [ ] Test: LRU eviction
@@ -72,10 +73,10 @@
 
 **Domain Layer**: 100% ✅ (3/3 components)
 **Application Layer**: 100% ✅ (3/3 components)  
-**Infrastructure Layer**: 0% ⏳ (0/3 components)
+**Infrastructure Layer**: 33% 🔄 (1/3 components)
 **Integration**: 0% ⏳ (0/3 components)
 
-**Overall Progress**: 50% complete
+**Overall Progress**: 58% complete
 
 ---
 
