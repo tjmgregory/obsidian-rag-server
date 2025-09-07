@@ -1,6 +1,6 @@
-import { describe, test, expect, beforeEach } from 'bun:test';
-import { MockFileSystem } from '../mocks/mock-file-system';
+import { beforeEach, describe, expect, test } from 'bun:test';
 import { VaultService } from '../../src/services/vault-service';
+import { MockFileSystem } from '../mocks/mock-file-system';
 
 describe('search_vault tool', () => {
   let mockFS: MockFileSystem;
@@ -9,13 +9,13 @@ describe('search_vault tool', () => {
   beforeEach(async () => {
     mockFS = new MockFileSystem();
     vaultService = new VaultService(
-      { 
-        vaultPath: '/', 
+      {
+        vaultPath: '/',
         ignoredFolders: ['.obsidian'],
         cacheSize: 100,
-        searchLimit: 10
+        searchLimit: 10,
       },
-      mockFS
+      mockFS,
     );
     await vaultService.initialize();
   });

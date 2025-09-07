@@ -1,4 +1,4 @@
-import { FileSystemAdapter, FileStats } from '../../src/services/file-system.interface';
+import type { FileStats, FileSystemAdapter } from '../../src/services/file-system.interface';
 
 export class MockFileSystem implements FileSystemAdapter {
   private files: Map<string, string> = new Map();
@@ -19,8 +19,8 @@ export class MockFileSystem implements FileSystemAdapter {
 
   async readdir(path: string): Promise<string[]> {
     const files: string[] = [];
-    const prefix = path.endsWith('/') ? path : path + '/';
-    
+    const prefix = path.endsWith('/') ? path : `${path}/`;
+
     for (const filePath of this.files.keys()) {
       if (filePath.startsWith(prefix)) {
         const relativePath = filePath.substring(prefix.length);
@@ -36,7 +36,7 @@ export class MockFileSystem implements FileSystemAdapter {
   async stat(path: string): Promise<FileStats> {
     const isFile = this.files.has(path);
     const isDir = this.directories.has(path);
-    
+
     if (!isFile && !isDir) {
       throw new Error(`ENOENT: no such file or directory, stat '${path}'`);
     }
@@ -45,7 +45,7 @@ export class MockFileSystem implements FileSystemAdapter {
       isFile: () => isFile,
       isDirectory: () => isDir,
       mtime: new Date('2024-01-15'),
-      birthtime: new Date('2024-01-01')
+      birthtime: new Date('2024-01-01'),
     };
   }
 
@@ -53,7 +53,7 @@ export class MockFileSystem implements FileSystemAdapter {
     return this.files.has(path) || this.directories.has(path);
   }
 
-  watch(path: string, callback: (event: string, filename: string) => void): void {
+  watch(_path: string, callback: (event: string, filename: string) => void): void {
     this.watchCallbacks.push(callback);
   }
 
@@ -64,7 +64,9 @@ export class MockFileSystem implements FileSystemAdapter {
   // Test helper methods
   addFile(path: string, content: string): void {
     this.files.set(path, content);
-    this.watchCallbacks.forEach(cb => cb('add', path));
+    for (const cb of this.watchCallbacks) {
+      cb('add', path);
+    }
   }
 
   private seedTestData(): void {
@@ -73,7 +75,9 @@ export class MockFileSystem implements FileSystemAdapter {
     this.directories.add('/projects');
 
     // Add test files - minimal for first test
-    this.files.set('/projects/project-alpha.md', `---
+    this.files.set(
+      '/projects/project-alpha.md',
+      `---
 title: Project Alpha
 status: active
 tags: [project, development]
@@ -88,14 +92,18 @@ Key project for Q1 2024. Working with team on implementation.
 - Build robust testing framework
 - Deploy to production
 
-#important #deadline-q1`);
+#important #deadline-q1`,
+    );
 
-    this.files.set('/projects/project-beta.md', `---
+    this.files.set(
+      '/projects/project-beta.md',
+      `---
 title: Project Beta
 ---
 
 # Project Beta
 
-Secondary project for testing.`);
+Secondary project for testing.`,
+    );
   }
 }

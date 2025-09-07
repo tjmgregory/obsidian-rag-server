@@ -11,6 +11,21 @@ Building a standalone RAG (Retrieval-Augmented Generation) MCP server that provi
 - **PRD**: `docs/prd.md` - Product requirements and specifications
 - **Implementation Guide**: `docs/phase-1-implementation-guide.md` - Step-by-step Phase 1 plan
 - **Decision Log**: `docs/decision-log/` - Architectural decisions and technical choices
+- **Coding Standards**: `docs/coding-standards.md` - Code style and best practices
+- **Testing Standards**: `docs/testing-standards.md` - TDD and testing guidelines
+
+## Development Standards
+
+**IMPORTANT**: All code must follow the standards defined in:
+- `docs/coding-standards.md` - Required coding practices
+- `docs/testing-standards.md` - TDD methodology and test requirements
+
+Key principles:
+- Use Test-Driven Development (TDD) - write tests first
+- Dependency injection for all services
+- Mock file system for unit tests
+- TypeScript strict mode always
+- No Vite/Vitest - use Bun's built-in test runner
 
 ## Decision Log Protocol
 

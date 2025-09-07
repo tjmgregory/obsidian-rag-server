@@ -2,7 +2,7 @@ export interface Note {
   path: string;
   title: string;
   content: string;
-  frontmatter: Record<string, any>;
+  frontmatter: Record<string, unknown>;
   tags: string[];
   links: string[];
   modified: Date;
