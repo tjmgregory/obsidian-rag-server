@@ -63,9 +63,11 @@ Phase 1 delivers a standalone MCP server that provides RAG functionality for you
 ### Step 1: Project Setup
 
 ```bash
-# Create project directory (renamed since it's not a plugin)
-mkdir -p ~/Documents/obsidian-rag-server
-cd ~/Documents/obsidian-rag-server
+# Clone or create the project directory
+# If cloning: git clone <repository-url> obsidian-rag-server
+# If creating new:
+mkdir -p obsidian-rag-server
+cd obsidian-rag-server
 
 # Initialize with Bun
 bun init -y
@@ -83,12 +85,18 @@ bun add -D @types/node typescript
 Create `config.json`:
 ```json
 {
-  "vaultPath": "/Users/theo/Documents/Obsidian",
-  "ignoredFolders": [".obsidian", ".trash"],
+  "vaultPath": "../",  // Path to your Obsidian vault relative to this project
+  "ignoredFolders": [".obsidian", ".trash", "obsidian-rag-server"],
   "cacheSize": 1000,
   "searchLimit": 50
 }
 ```
+
+**Configuration Notes:**
+- `vaultPath` can be either relative (e.g., `"../"` if server is inside vault) or absolute
+- Environment variable `VAULT_PATH` overrides the config file setting
+- Ignored folders prevent indexing of non-content directories
+- Adjust `cacheSize` based on your vault size and available memory
 
 ### Step 3: Core Type Definitions
 
@@ -157,17 +165,67 @@ export class VaultService {
 
 Create `src/mcp/server.ts`:
 
-Implements Phase 1 MCP endpoints (simplified versions from PRD):
+## Phase 1 MCP Endpoints Implementation Order
 
-**Tools (Phase 1 - Basic Implementations):**
-- `search_vault` - Keyword search only
-- `get_note` - Retrieve complete note by path
-- `list_notes` - List notes with folder filtering
+### Priority 1: Core Tools (Implement First)
 
-**Resources (Phase 1 - Basic Data):**
-- `obsidian://vault/info` - Note count and basic stats
-- `obsidian://vault/tags` - Simple tag list
-- `obsidian://vault/recent` - Last 30 modified notes
+#### 1. `search_vault` Tool
+**Purpose**: Keyword search across all notes
+**Success Criteria**:
+- ✅ Returns results for exact word matches
+- ✅ Returns results for partial word matches
+- ✅ Results include note path, title, and snippet
+- ✅ Results are ranked by relevance (title matches > content matches)
+- ✅ Respects the configured search limit (default: 50)
+- ✅ Completes search in <200ms for 1000 notes
+- ✅ Handles special characters gracefully
+
+#### 2. `get_note` Tool
+**Purpose**: Retrieve complete note content by path
+**Success Criteria**:
+- ✅ Returns full note content for valid path
+- ✅ Includes parsed frontmatter as separate field
+- ✅ Returns extracted tags array
+- ✅ Returns extracted links array
+- ✅ Returns null/error for non-existent paths
+- ✅ Handles paths with spaces and special characters
+
+#### 3. `list_notes` Tool
+**Purpose**: List notes with optional folder filtering
+**Success Criteria**:
+- ✅ Returns all notes when no folder specified
+- ✅ Filters by folder path when provided
+- ✅ Returns note metadata (path, title, modified date)
+- ✅ Sorted by modified date (newest first)
+- ✅ Respects .gitignore and ignored folders
+- ✅ Handles nested folder paths correctly
+
+### Priority 2: Core Resources (Implement Second)
+
+#### 1. `obsidian://vault/info` Resource
+**Purpose**: Basic vault statistics
+**Success Criteria**:
+- ✅ Returns total note count
+- ✅ Returns vault path
+- ✅ Returns last update timestamp
+- ✅ Returns total tags count
+- ✅ Updates after file changes
+
+#### 2. `obsidian://vault/tags` Resource
+**Purpose**: List all unique tags
+**Success Criteria**:
+- ✅ Returns alphabetically sorted tag list
+- ✅ Includes tag occurrence counts
+- ✅ Extracts both #inline and frontmatter tags
+- ✅ Updates when notes are modified
+
+#### 3. `obsidian://vault/recent` Resource
+**Purpose**: Recently modified notes
+**Success Criteria**:
+- ✅ Returns last 30 modified notes
+- ✅ Sorted by modification time (newest first)
+- ✅ Includes basic metadata (path, title, modified)
+- ✅ Updates in real-time with file changes
 
 ### Step 6: Main Entry Point
 
@@ -209,7 +267,7 @@ async function main() {
   await server.connect(transport);
   
   console.error('Obsidian RAG MCP Server running');
-  console.error(`Vault: ${config.vaultPath}`);
+  console.error(`Vault: ${path.resolve(config.vaultPath)}`);
   console.error(`Notes: ${vaultService.getNoteCount()}`);
 }
 
@@ -266,9 +324,9 @@ Add to Claude Desktop config (`~/Library/Application Support/Claude/claude_deskt
   "mcpServers": {
     "obsidian-rag": {
       "command": "bun",
-      "args": ["run", "/path/to/obsidian-rag-server/src/index.ts"],
+      "args": ["run", "<absolute-path-to-project>/obsidian-rag-server/src/index.ts"],
       "env": {
-        "VAULT_PATH": "/Users/theo/Documents/Obsidian"
+        "VAULT_PATH": "<absolute-path-to-your-vault>"
       }
     }
   }
@@ -277,36 +335,65 @@ Add to Claude Desktop config (`~/Library/Application Support/Claude/claude_deskt
 
 ## Testing Strategy
 
+### Phase 1 Success Criteria
+
+**Phase 1 is complete when ALL of the following are verified:**
+
+#### Core Functionality
+- [ ] Server starts and connects to Claude Desktop without errors
+- [ ] All 3 tools (`search_vault`, `get_note`, `list_notes`) respond correctly
+- [ ] All 3 resources (`vault/info`, `vault/tags`, `vault/recent`) return valid data
+- [ ] File watching detects changes within 1 second
+
+#### Performance Requirements
+- [ ] Search completes in <200ms for test vault
+- [ ] Initial vault load completes in <5 seconds
+- [ ] Memory usage stays below 100MB for typical vault
+- [ ] No memory leaks during 1-hour continuous operation
+
 ### Manual Testing Checklist
 
 1. **Server Startup**
    - [ ] Server starts without errors
    - [ ] Loads all notes from vault
    - [ ] Reports correct note count
+   - [ ] Connects to Claude Desktop successfully
 
-2. **Search Functionality**
-   - [ ] Keyword search returns results
-   - [ ] Results ranked by relevance
-   - [ ] Respects search limit
-   - [ ] Handles special characters
+2. **Tool: search_vault**
+   - [ ] Returns results for single keyword
+   - [ ] Returns results for multiple keywords
+   - [ ] Ranks title matches higher than content matches
+   - [ ] Returns snippets with search term highlighted
+   - [ ] Respects search limit parameter
+   - [ ] Handles special characters gracefully
 
-3. **File Operations**
-   - [ ] Get note by path works
-   - [ ] List notes returns all notes
-   - [ ] Folder filtering works
-   - [ ] Tag extraction correct
+3. **Tool: get_note**
+   - [ ] Returns complete note content
+   - [ ] Includes parsed frontmatter
+   - [ ] Returns extracted tags array
+   - [ ] Returns extracted links array
+   - [ ] Handles non-existent paths gracefully
+   - [ ] Works with paths containing spaces
 
-4. **File Watching**
-   - [ ] New files detected
-   - [ ] Modified files updated
-   - [ ] Deleted files removed
+4. **Tool: list_notes**
+   - [ ] Returns all notes when no folder specified
+   - [ ] Filters by folder correctly
+   - [ ] Returns notes sorted by modified date
+   - [ ] Includes note metadata
+   - [ ] Respects ignored folders
+
+5. **Resources**
+   - [ ] vault/info returns accurate statistics
+   - [ ] vault/tags returns all unique tags with counts
+   - [ ] vault/recent returns 30 most recent notes
+   - [ ] All resources update after file changes
+
+6. **File Watching**
+   - [ ] New files detected and indexed
+   - [ ] Modified files updated in cache
+   - [ ] Deleted files removed from index
    - [ ] Ignores non-markdown files
-
-5. **MCP Protocol**
-   - [ ] Tools respond correctly
-   - [ ] Resources return valid data
-   - [ ] Error handling works
-   - [ ] Works with Claude Desktop
+   - [ ] Ignores configured folders
 
 ### Performance Targets
 
