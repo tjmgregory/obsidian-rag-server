@@ -1,0 +1,6 @@
+{
+  "vaultPath": "/Users/username/Documents/YourVault",
+  "ignoredFolders": [".obsidian", ".trash", "node_modules"],
+  "cacheSize": 1000,
+  "searchLimit": 50
+}

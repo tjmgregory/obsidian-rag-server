@@ -1,0 +1,25 @@
+{
+  "name": "obsidian-rag",
+  "version": "0.1.0",
+  "description": "RAG system for intelligent knowledge retrieval from Obsidian vaults with MCP interface",
+  "main": "main.js",
+  "scripts": {
+    "dev": "vite build --watch",
+    "build": "vite build",
+    "test": "vitest run",
+    "test:watch": "vitest watch",
+    "lint": "biome check src/",
+    "format": "biome check --apply src/",
+    "clean": "rm -rf dist/ main.js"
+  },
+  "keywords": ["obsidian", "plugin", "mcp", "rag", "retrieval", "knowledge-base", "ai"],
+  "author": "Theo",
+  "license": "MIT",
+  "devDependencies": {
+    "obsidian": "latest",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0",
+    "vite": "^5.0.0",
+    "vitest": "^1.2.0"
+  }
+}
