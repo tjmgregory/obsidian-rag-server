@@ -24,43 +24,127 @@ Phase 1 delivers a standalone MCP server that provides RAG functionality for you
 - ❌ Connection analysis
 - ❌ Context extraction tools
 
-## Technical Architecture
+## Technical Architecture - Hexagonal Design
+
+### High-Level Architecture
+
+We follow **Hexagonal Architecture** (Ports and Adapters) to ensure clean separation of concerns, testability, and maintainability.
 
 ```
-┌─────────────────────────────────────────┐
-│         MCP Client (Claude, etc)         │
-└────────────┬────────────────────────────┘
-             │ STDIO
-             ▼
-┌─────────────────────────────────────────┐
-│          MCP Server (Bun)                │
-│  - Handle MCP protocol                   │
-│  - Route tool/resource requests          │
-│  - Format responses                      │
-└────────────┬────────────────────────────┘
-             │
-             ▼
-┌─────────────────────────────────────────┐
-│          Vault Service                   │
-│  - Read markdown files                   │
-│  - Parse frontmatter (gray-matter)       │
-│  - Extract tags and links                │
-│  - Perform keyword search                │
-│  - Cache metadata                        │
-└────────────┬────────────────────────────┘
-             │
-             ▼
-┌─────────────────────────────────────────┐
-│       File System (Your Vault)           │
-│  - Watch for changes (chokidar)          │
-│  - Read .md files                        │
-│  - Respect .gitignore                    │
-└─────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────┐
+│              PRIMARY/DRIVING SIDE                     │
+│                                                       │
+│  ┌─────────────────────────────────────────┐         │
+│  │     MCP Client (Claude, etc)            │         │
+│  └──────────────┬──────────────────────────┘         │
+│                 │ STDIO Protocol                      │
+│                 ▼                                     │
+│  ┌─────────────────────────────────────────┐         │
+│  │     MCP Server Adapter (Primary)        │         │
+│  │  - Translates MCP protocol to use cases │         │
+│  └──────────────┬──────────────────────────┘         │
+│                 │                                     │
+└─────────────────┼─────────────────────────────────────┘
+                  │
+     ┌────────────▼────────────────────────┐
+     │      APPLICATION LAYER              │
+     │                                     │
+     │  ┌──────────────────────────────┐  │
+     │  │    Primary Ports (Use Cases) │  │
+     │  │  - SearchVaultUseCase        │  │
+     │  │  - GetNoteUseCase           │  │
+     │  │  - ListNotesUseCase         │  │
+     │  └──────────┬───────────────────┘  │
+     │             │                       │
+     │             ▼                       │
+     │  ┌──────────────────────────────┐  │
+     │  │      DOMAIN CORE             │  │
+     │  │  (Pure Business Logic)       │  │
+     │  │  - Note entity              │  │
+     │  │  - SearchResult entity      │  │
+     │  │  - NoteSearcher service     │  │
+     │  │  - NoteRanker service       │  │
+     │  └──────────┬───────────────────┘  │
+     │             │                       │
+     │             ▼                       │
+     │  ┌──────────────────────────────┐  │
+     │  │   Secondary Ports            │  │
+     │  │  - NoteRepository interface  │  │
+     │  │  - FileSystemPort interface  │  │
+     │  │  - CachePort interface       │  │
+     │  └──────────────────────────────┘  │
+     │                                     │
+     └────────────┬────────────────────────┘
+                  │
+┌─────────────────┼─────────────────────────────────────┐
+│                 │                                      │
+│                 ▼                                      │
+│  ┌─────────────────────────────────────────┐         │
+│  │     Secondary Adapters                   │         │
+│  │  - FileNoteRepository                   │         │
+│  │  - BunFileSystemAdapter                 │         │
+│  │  - InMemoryCacheAdapter                 │         │
+│  └──────────────┬──────────────────────────┘         │
+│                 │                                      │
+│                 ▼                                      │
+│  ┌─────────────────────────────────────────┐         │
+│  │     External Systems                     │         │
+│  │  - File System (Obsidian Vault)         │         │
+│  │  - File Watcher (chokidar)              │         │
+│  └─────────────────────────────────────────┘         │
+│                                                       │
+│              SECONDARY/DRIVEN SIDE                    │
+└───────────────────────────────────────────────────────┘
+```
+
+### Directory Structure Following Hexagonal Architecture
+
+```
+src/
+├── domain/                 # Pure business logic (no dependencies)
+│   ├── entities/
+│   │   ├── Note.ts        # Note entity
+│   │   └── SearchResult.ts
+│   └── services/
+│       ├── NoteSearcher.ts # Domain service for searching
+│       └── NoteRanker.ts   # Domain service for ranking
+│
+├── application/            # Application layer
+│   ├── ports/
+│   │   ├── primary/       # Driving ports (use cases)
+│   │   │   ├── SearchVaultUseCase.ts
+│   │   │   ├── GetNoteUseCase.ts
+│   │   │   └── ListNotesUseCase.ts
+│   │   └── secondary/     # Driven ports (interfaces)
+│   │       ├── NoteRepository.ts
+│   │       ├── FileSystemPort.ts
+│   │       └── CachePort.ts
+│   └── use-cases/         # Use case implementations
+│       ├── SearchVaultUseCaseImpl.ts
+│       ├── GetNoteUseCaseImpl.ts
+│       └── ListNotesUseCaseImpl.ts
+│
+├── infrastructure/         # Adapters and external concerns
+│   ├── adapters/
+│   │   ├── primary/       # Driving adapters
+│   │   │   └── MCPServerAdapter.ts
+│   │   └── secondary/     # Driven adapters
+│   │       ├── FileNoteRepository.ts
+│   │       ├── BunFileSystemAdapter.ts
+│   │       └── InMemoryCacheAdapter.ts
+│   ├── config/
+│   │   └── ConfigLoader.ts
+│   └── composition/       # Dependency injection
+│       └── CompositionRoot.ts
+│
+├── index.ts               # Entry point - wires everything
+└── types/                 # Shared type definitions
+    └── index.ts
 ```
 
 ## Implementation Steps
 
-### Step 1: Project Setup
+### Step 1: Project Setup with Hexagonal Structure
 
 ```bash
 # Clone or create the project directory
@@ -72,12 +156,18 @@ cd obsidian-rag-server
 # Initialize with Bun
 bun init -y
 
-# Create source directories
-mkdir -p src/{services,mcp,types,utils}
+# Create hexagonal architecture directories
+mkdir -p src/domain/{entities,services}
+mkdir -p src/application/ports/{primary,secondary}
+mkdir -p src/application/use-cases
+mkdir -p src/infrastructure/adapters/{primary,secondary}
+mkdir -p src/infrastructure/{config,composition}
+mkdir -p src/types
+mkdir -p test/{domain,application,infrastructure,mocks}
 
 # Install dependencies
 bun add @modelcontextprotocol/sdk gray-matter chokidar
-bun add -D @types/node typescript
+bun add -D @types/node typescript @biomejs/biome
 ```
 
 ### Step 2: Configuration
@@ -98,32 +188,111 @@ Create `config.json`:
 - Ignored folders prevent indexing of non-content directories
 - Adjust `cacheSize` based on your vault size and available memory
 
-### Step 3: Core Type Definitions
+### Step 3: Domain Entities and Value Objects
 
-Create `src/types/index.ts`:
+Following hexagonal architecture, we start with pure domain entities that have no external dependencies.
+
+#### Domain Entities
+
+Create `src/domain/entities/Note.ts`:
 ```typescript
-export interface Note {
-  path: string;
-  title: string;
-  content: string;
-  frontmatter: Record<string, any>;
-  tags: string[];
-  links: string[];
-  modified: Date;
-  created: Date;
+// Pure domain entity - no infrastructure concerns
+export class Note {
+  constructor(
+    public readonly path: string,
+    public readonly title: string,
+    public readonly content: string,
+    public readonly frontmatter: Record<string, any>,
+    public readonly tags: string[],
+    public readonly links: string[],
+    public readonly modified: Date,
+    public readonly created: Date,
+  ) {}
+  
+  hasTag(tag: string): boolean {
+    return this.tags.includes(tag.toLowerCase());
+  }
+  
+  matchesQuery(query: string): boolean {
+    const q = query.toLowerCase();
+    return this.title.toLowerCase().includes(q) ||
+           this.content.toLowerCase().includes(q);
+  }
 }
+```
 
-export interface SearchResult {
-  note: Note;
-  score: number;
-  snippet: string;
+Create `src/domain/entities/SearchResult.ts`:
+```typescript
+import { Note } from './Note';
+
+export class SearchResult {
+  constructor(
+    public readonly note: Note,
+    public readonly score: number,
+    public readonly snippet: string,
+  ) {}
+  
+  static create(note: Note, score: number, query: string): SearchResult {
+    const snippet = this.extractSnippet(note.content, query);
+    return new SearchResult(note, score, snippet);
+  }
+  
+  private static extractSnippet(content: string, query: string): string {
+    // Pure logic for snippet extraction
+    const index = content.toLowerCase().indexOf(query.toLowerCase());
+    if (index === -1) return content.slice(0, 150) + '...';
+    
+    const start = Math.max(0, index - 50);
+    const end = Math.min(content.length, index + query.length + 50);
+    return '...' + content.slice(start, end) + '...';
+  }
 }
+```
 
-export interface VaultConfig {
-  vaultPath: string;
-  ignoredFolders: string[];
-  cacheSize: number;
-  searchLimit: number;
+#### Domain Services
+
+Create `src/domain/services/NoteSearcher.ts`:
+```typescript
+import { Note } from '../entities/Note';
+import { SearchResult } from '../entities/SearchResult';
+
+// Pure domain service - no I/O, just business logic
+export class NoteSearcher {
+  search(notes: Note[], query: string, limit: number = 50): SearchResult[] {
+    if (!query.trim()) return [];
+    
+    const results = notes
+      .filter(note => note.matchesQuery(query))
+      .map(note => {
+        const score = this.calculateScore(note, query);
+        return SearchResult.create(note, score, query);
+      })
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit);
+      
+    return results;
+  }
+  
+  private calculateScore(note: Note, query: string): number {
+    const q = query.toLowerCase();
+    let score = 0;
+    
+    // Title match is worth more
+    if (note.title.toLowerCase().includes(q)) {
+      score += note.title.toLowerCase() === q ? 100 : 50;
+    }
+    
+    // Content matches
+    const contentMatches = (note.content.toLowerCase().match(new RegExp(q, 'g')) || []).length;
+    score += contentMatches * 10;
+    
+    // Tag matches
+    if (note.tags.some(tag => tag.toLowerCase().includes(q))) {
+      score += 30;
+    }
+    
+    return score;
+  }
 }
 ```
 

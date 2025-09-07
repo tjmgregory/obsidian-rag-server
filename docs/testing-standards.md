@@ -561,79 +561,189 @@ test('debug test', async () => {
 - Coverage must not decrease
 - Performance tests must pass
 
-## Ports and Adapters Architecture for Testing
+## Hexagonal Architecture Testing Strategy
 
-### Architecture Overview
-The Ports and Adapters (Hexagonal) architecture provides clear testing boundaries:
+### Testing Philosophy for Hexagonal Architecture
+
+In hexagonal architecture, we test at specific architectural boundaries to maximize confidence while minimizing test coupling and maintenance burden.
+
+### Architecture-Based Testing Levels
 
 ```
-┌─────────────────────────────────────┐
-│         Adapters (Outside)          │
-│  ┌─────────────────────────────┐    │
-│  │   HTTP/GUI    │   Database  │    │
-│  │   Adapters    │   Adapters  │    │
-│  └───────┬───────┴──────┬──────┘    │
-│          │              │           │
-│  ┌───────▼───────┬──────▼──────┐    │
-│  │     Ports    │    Ports     │    │ <- Test Here!
-│  └───────┬───────┴──────┬──────┘    │
-│          │              │           │
-│  ┌───────▼──────────────▼──────┐    │
-│  │                              │    │
-│  │      Domain/Business         │    │
-│  │         Logic                │    │
-│  │    (Technology-Free)         │    │
-│  │                              │    │
-│  └──────────────────────────────┘    │
-└─────────────────────────────────────┘
+┌─────────────────────────────────────────────┐
+│          Primary Adapters                    │ <- Integration tests (few)
+│         (MCP, HTTP, CLI)                     │    Test protocol adaptation
+├─────────────────────────────────────────────┤
+│          Primary Ports                       │ <- Behavior tests (many)
+│         (Use Cases)                          │    Test application behavior
+├─────────────────────────────────────────────┤
+│                                              │
+│          Domain Core                         │ <- Unit tests (most)
+│     (Pure Business Logic)                    │    Test domain rules
+│                                              │
+├─────────────────────────────────────────────┤
+│         Secondary Ports                      │ <- Contract tests
+│      (Repository Interfaces)                 │    Test port contracts
+├─────────────────────────────────────────────┤
+│        Secondary Adapters                    │ <- Integration tests (few)
+│     (File System, Database)                  │    Test real I/O works
+└─────────────────────────────────────────────┘
 ```
 
-### Testing at Different Levels
+### Testing Guidelines by Layer
 
-#### 1. Domain/Business Logic Tests (Core)
-- Test pure business behaviors
-- No technology concerns (no DB, no HTTP)
-- These form the bulk of your tests
-- Example: "Calculate search relevance score"
+#### 1. Domain Core Testing (80% of tests)
+**What to test**: Pure business logic, domain rules, calculations
+**How to test**: Direct unit tests, no mocks needed
+**Test through**: Direct instantiation of domain objects
 
-#### 2. Port Tests (Boundaries)
-- Test the contracts/interfaces your domain exposes
-- Mock external adapters if needed
-- Example: "SearchPort returns filtered results"
-
-#### 3. Adapter Tests (Minimal)
-- Only test configuration and setup
-- Don't test third-party code
-- Example: "Database adapter connects with config"
-
-#### 4. Integration Tests (Few)
-- Test that ports and adapters connect correctly
-- Use real dependencies but isolated data
-- Example: "Can persist and retrieve a note"
-
-### Practical Example
 ```typescript
-// Domain (test heavily)
-class NoteSearcher {
-  findRelevantNotes(query: string, notes: Note[]): SearchResult[] {
-    // Pure business logic - easy to test
+// Domain entity test - no mocks needed!
+describe('NoteSearcher', () => {
+  test('ranks exact title matches highest', () => {
+    const searcher = new NoteSearcher();
+    const notes = [
+      new Note('foo.md', 'Bar', 'Content'),
+      new Note('bar.md', 'Foo', 'Content'),
+    ];
+    
+    const results = searcher.search('Foo', notes);
+    
+    expect(results[0].note.path).toBe('bar.md');
+  });
+});
+```
+
+#### 2. Use Case Testing (15% of tests)
+**What to test**: Application workflows, orchestration logic
+**How to test**: Mock only secondary ports (repositories)
+**Test through**: Use case interfaces
+
+```typescript
+// Use case test - mock secondary ports only
+describe('SearchVaultUseCase', () => {
+  test('searches all notes and returns ranked results', async () => {
+    const mockRepo: NoteRepository = {
+      findAll: async () => [/* test notes */],
+    };
+    
+    const useCase = new SearchVaultUseCase(mockRepo, new NoteSearcher());
+    const results = await useCase.execute('query');
+    
+    expect(results).toHaveLength(2);
+  });
+});
+```
+
+#### 3. Adapter Testing (5% of tests)
+**What to test**: Protocol translation, configuration
+**How to test**: Mock the ports they depend on
+**Test through**: Adapter public methods
+
+```typescript
+// Primary adapter test - mock the use case
+describe('MCPSearchAdapter', () => {
+  test('translates MCP request to use case call', async () => {
+    const mockUseCase: SearchVaultUseCase = {
+      execute: async (query) => [/* results */],
+    };
+    
+    const adapter = new MCPSearchAdapter(mockUseCase);
+    const response = await adapter.handle({
+      method: 'search_vault',
+      params: { query: 'test' },
+    });
+    
+    expect(response.results).toBeDefined();
+  });
+});
+```
+
+### Testing Patterns for Hexagonal Architecture
+
+#### Pattern 1: Test Domain Without Infrastructure
+```typescript
+// ✅ GOOD: Pure domain test
+class NoteRanker {
+  rank(note: Note, query: string): number {
+    // Pure logic - no I/O
   }
 }
 
-// Port (test the contract)
-interface SearchPort {
-  search(query: string): Promise<SearchResult[]>;
-}
+test('ranks by relevance', () => {
+  const ranker = new NoteRanker();
+  expect(ranker.rank(note, 'query')).toBe(0.95);
+});
 
-// Adapter (test minimally)
-class HttpSearchAdapter {
-  constructor(private searchPort: SearchPort) {}
+// ❌ BAD: Domain test with infrastructure
+test('ranks by relevance', async () => {
+  const ranker = new NoteRanker();
+  const note = await fs.readFile('note.md'); // NO!
+});
+```
+
+#### Pattern 2: Test Use Cases with Minimal Mocks
+```typescript
+// ✅ GOOD: Mock only secondary ports
+const mockNoteRepo: NoteRepository = {
+  findAll: async () => testNotes,
+};
+const useCase = new SearchUseCase(mockNoteRepo);
+
+// ❌ BAD: Mock domain services
+const mockSearcher = mock(NoteSearcher); // Don't mock domain!
+```
+
+#### Pattern 3: Test Adapters Focus on Translation
+```typescript
+// ✅ GOOD: Test adapter translation logic
+test('maps MCP params to use case input', () => {
+  const adapter = new MCPAdapter(mockUseCase);
+  adapter.handle({ params: { q: 'test' } });
+  expect(mockUseCase.execute).toHaveBeenCalledWith('test');
+});
+
+// ❌ BAD: Test business logic in adapter test
+test('adapter searches correctly', () => {
+  // This belongs in domain/use case tests!
+});
+```
+
+### Mock Strategy for Hexagonal Architecture
+
+#### When to Mock in Hexagonal Architecture
+
+| Layer | Mock? | What to Mock | Why |
+|-------|-------|--------------|-----|
+| Domain | Never | Nothing | Pure logic needs no mocks |
+| Use Cases | Sometimes | Secondary ports only | Isolate from infrastructure |
+| Primary Adapters | Always | Use cases/Primary ports | Test translation only |
+| Secondary Adapters | Sometimes | External systems | Test configuration |
+
+#### Mock Implementation for Ports
+```typescript
+// Create test doubles that implement port interfaces
+class InMemoryNoteRepository implements NoteRepository {
+  private notes: Note[] = [];
   
-  async handleRequest(req: Request): Promise<Response> {
-    // Just adapts HTTP to port interface
-    // Test: Does it call the port correctly?
+  async findAll(): Promise<Note[]> {
+    return this.notes;
+  }
+  
+  async save(note: Note): Promise<void> {
+    this.notes.push(note);
+  }
+  
+  // Test helper
+  seed(notes: Note[]): void {
+    this.notes = notes;
   }
 }
+
+// Use in tests
+const repo = new InMemoryNoteRepository();
+repo.seed([testNote1, testNote2]);
+const useCase = new SearchUseCase(repo);
 ```
 
 ## BDD and Customer-Facing Tests

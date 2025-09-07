@@ -25,38 +25,182 @@ Biome is configured to minimize diff noise:
 
 ## Architecture & Design Patterns
 
-### Dependency Injection (Not Enforced by Linters)
+### Hexagonal Architecture (Ports and Adapters)
 
-Always use dependency injection for testability:
+This project follows **Hexagonal Architecture** to create loosely coupled, testable, and maintainable code. The architecture separates business logic from infrastructure concerns.
 
+#### Core Principles
+
+1. **Domain at the Center**: Pure business logic with no framework dependencies
+2. **Ports Define Contracts**: Interfaces that define how the domain interacts with the outside world
+3. **Adapters Implement Infrastructure**: Concrete implementations of ports for specific technologies
+4. **Dependency Inversion**: Domain depends on abstractions (ports), not concrete implementations
+
+#### Architecture Layers
+
+```
+┌─────────────────────────────────────────┐
+│         Primary/Driving Adapters        │
+│     (MCP Server, HTTP API, CLI)        │
+└────────────────┬────────────────────────┘
+                 │
+┌────────────────▼────────────────────────┐
+│           Primary Ports                 │
+│    (Use Cases / Application Services)   │
+└────────────────┬────────────────────────┘
+                 │
+┌────────────────▼────────────────────────┐
+│                                         │
+│         DOMAIN / BUSINESS LOGIC         │
+│     (Pure, framework-free TypeScript)   │
+│                                         │
+└────────────────┬────────────────────────┘
+                 │
+┌────────────────▼────────────────────────┐
+│          Secondary Ports                │
+│    (Repository, FileSystem, Cache)      │
+└────────────────┬────────────────────────┘
+                 │
+┌────────────────▼────────────────────────┐
+│       Secondary/Driven Adapters         │
+│    (File System, Database, External)    │
+└─────────────────────────────────────────┘
+```
+
+#### Implementation Guidelines
+
+##### Domain Layer (Center)
 ```typescript
-// ✅ Good: Injectable dependencies
-export class VaultService {
-  constructor(
-    private config: VaultConfig,
-    private fileSystem?: FileSystemAdapter  // Optional for testing
-  ) {
-    this.fileSystem = fileSystem || new RealFileSystem();
+// ✅ Good: Pure domain logic, no infrastructure
+export class NoteSearcher {
+  findRelevantNotes(query: string, notes: Note[]): SearchResult[] {
+    // Pure business logic for ranking and filtering
+    // No file I/O, no database, no HTTP
   }
 }
 
-// ❌ Bad: Hard-coded dependencies
-export class VaultService {
-  private fileSystem = new RealFileSystem(); // Can't mock in tests!
+// ❌ Bad: Domain with infrastructure concerns
+export class NoteSearcher {
+  async search(query: string) {
+    const files = await fs.readdir(this.path); // NO! Infrastructure in domain
+  }
 }
 ```
 
-### File System Abstraction
+##### Ports (Interfaces)
+```typescript
+// Primary Port (Use Case)
+export interface SearchVaultUseCase {
+  execute(query: string, options?: SearchOptions): Promise<SearchResult[]>;
+}
 
-Never access the file system directly in business logic:
+// Secondary Port (Repository)
+export interface NoteRepository {
+  findAll(): Promise<Note[]>;
+  findByPath(path: string): Promise<Note | null>;
+  save(note: Note): Promise<void>;
+}
+
+// Secondary Port (File System)
+export interface FileSystemPort {
+  readFile(path: string): Promise<string>;
+  writeFile(path: string, content: string): Promise<void>;
+  watch(path: string, callback: WatchCallback): void;
+}
+```
+
+##### Adapters (Implementations)
+```typescript
+// Primary Adapter (MCP Server)
+export class MCPServerAdapter {
+  constructor(private searchUseCase: SearchVaultUseCase) {}
+  
+  async handleSearchRequest(params: any) {
+    // Adapt MCP protocol to use case
+    const results = await this.searchUseCase.execute(params.query);
+    return this.formatForMCP(results);
+  }
+}
+
+// Secondary Adapter (File System)
+export class BunFileSystemAdapter implements FileSystemPort {
+  async readFile(path: string): Promise<string> {
+    // Actual file I/O using Bun
+    return await Bun.file(path).text();
+  }
+}
+```
+
+### Dependency Injection for Hexagonal Architecture
+
+Use dependency injection to wire ports and adapters:
 
 ```typescript
-// ✅ Good: Use abstraction
-await this.fileSystem.readFile(path);
+// ✅ Good: Inject ports, not concrete implementations
+export class VaultService {
+  constructor(
+    private noteRepository: NoteRepository,  // Port interface
+    private fileSystem: FileSystemPort,      // Port interface
+    private cache: CachePort,                // Port interface
+  ) {}
+}
 
-// ❌ Bad: Direct fs access
+// Composition root (main/index.ts)
+const fileSystem = new BunFileSystemAdapter();
+const repository = new FileNoteRepository(fileSystem);
+const cache = new InMemoryCacheAdapter();
+const vaultService = new VaultService(repository, fileSystem, cache);
+
+// ❌ Bad: Hard-coded dependencies
+export class VaultService {
+  private fileSystem = new BunFileSystemAdapter(); // Coupled to infrastructure!
+}
+```
+
+### File System as a Secondary Port
+
+File system access is infrastructure and must be behind a port:
+
+```typescript
+// ✅ Good: File system as a port
+interface FileSystemPort {
+  readFile(path: string): Promise<string>;
+  exists(path: string): Promise<boolean>;
+}
+
+class VaultService {
+  constructor(private fs: FileSystemPort) {}
+  
+  async loadNote(path: string) {
+    return await this.fs.readFile(path);
+  }
+}
+
+// ❌ Bad: Direct file system access in service
 import { readFile } from 'fs/promises';
-await readFile(path);
+
+class VaultService {
+  async loadNote(path: string) {
+    return await readFile(path); // Coupled to Node.js fs!
+  }
+}
+```
+
+### Testing with Hexagonal Architecture
+
+The architecture makes testing straightforward:
+
+```typescript
+// Unit test: Mock the ports
+const mockFS: FileSystemPort = {
+  readFile: async (path) => 'mock content',
+  exists: async (path) => true,
+};
+const service = new VaultService(mockFS);
+
+// Integration test: Use real adapters
+const realFS = new BunFileSystemAdapter();
+const service = new VaultService(realFS);
 ```
 
 ## Error Handling & Logging Philosophy
@@ -265,43 +409,121 @@ function escapeRegex(str: string): string {
 
 ## Code Organization Principles
 
-### Single Responsibility
+### Project Structure for Hexagonal Architecture
 
-Each class/function should have one clear purpose:
+```
+src/
+├── domain/              # Pure business logic (no dependencies)
+│   ├── entities/       # Domain entities (Note, SearchResult)
+│   ├── services/       # Domain services (NoteSearcher, NoteRanker)
+│   └── value-objects/  # Value objects (NoteId, SearchQuery)
+├── application/         # Application layer (use cases)
+│   ├── ports/          # Port interfaces
+│   │   ├── primary/    # Driving ports (use cases)
+│   │   └── secondary/  # Driven ports (repositories, gateways)
+│   └── use-cases/      # Use case implementations
+├── infrastructure/      # Adapters and framework-specific code
+│   ├── adapters/
+│   │   ├── primary/    # MCP server, HTTP, CLI adapters
+│   │   └── secondary/  # File system, database adapters
+│   ├── config/         # Configuration loading
+│   └── composition/    # Dependency injection setup
+└── index.ts            # Composition root (wires everything)
+```
+
+### Single Responsibility in Hexagonal Context
+
+Each component has one clear role in the architecture:
 
 ```typescript
-// ✅ Good: Separate concerns
-class NoteParser {
-  parse(content: string): Note { }
-}
+// ✅ Good: Clear architectural boundaries
 
+// Domain Service (pure logic)
 class NoteSearcher {
-  search(notes: Note[], query: string): SearchResult[] { }
+  rankByRelevance(notes: Note[], query: string): SearchResult[] {
+    // Pure domain logic
+  }
 }
 
-// ❌ Bad: Mixed responsibilities
+// Use Case (orchestration)
+class SearchVaultUseCase implements SearchVaultPort {
+  constructor(
+    private repository: NoteRepository,
+    private searcher: NoteSearcher,
+  ) {}
+  
+  async execute(query: string): Promise<SearchResult[]> {
+    const notes = await this.repository.findAll();
+    return this.searcher.rankByRelevance(notes, query);
+  }
+}
+
+// Adapter (infrastructure)
+class MCPSearchAdapter {
+  constructor(private searchUseCase: SearchVaultPort) {}
+  
+  handleRequest(params: MCPRequest): MCPResponse {
+    // Adapt protocol to use case
+  }
+}
+
+// ❌ Bad: Mixed architectural concerns
 class NoteManager {
-  parse() { }
-  search() { }
-  cache() { }
-  watch() { }
+  parse() { }          // Domain logic
+  searchFiles() { }    // Infrastructure
+  handleHTTP() { }     // Adapter logic
+  cacheResults() { }   // Cross-cutting concern
 }
 ```
 
 ### Composition Over Inheritance
 
+Hexagonal architecture naturally promotes composition:
+
 ```typescript
-// ✅ Good: Composition
+// ✅ Good: Composition with ports
 class VaultService {
   constructor(
-    private parser: NoteParser,
-    private searcher: NoteSearcher,
-    private cache: CacheService
+    private noteRepo: NoteRepository,      // Port
+    private searchEngine: SearchEngine,    // Port
+    private eventBus: EventBus,           // Port
   ) {}
 }
 
-// ❌ Bad: Deep inheritance
-class VaultService extends BaseService extends CacheableService { }
+// Wire at composition root
+const vaultService = new VaultService(
+  new FileNoteRepository(fileSystemAdapter),
+  new LunrSearchEngine(),
+  new InMemoryEventBus(),
+);
+
+// ❌ Bad: Inheritance couples to implementation
+class VaultService extends FileBasedService { 
+  // Now coupled to file-based implementation
+}
+```
+
+### Dependency Flow Rules
+
+1. **Dependencies point inward**: Outer layers depend on inner layers, never reverse
+2. **Domain has zero dependencies**: Pure TypeScript, no imports from infrastructure
+3. **Ports are owned by the domain**: Defined in terms of domain concepts
+4. **Adapters depend on ports**: Not the other way around
+
+```typescript
+// ✅ Good: Adapter depends on port
+import { NoteRepository } from '../../application/ports/secondary';
+
+export class FileNoteRepository implements NoteRepository {
+  // Implements the port interface
+}
+
+// ❌ Bad: Domain depends on infrastructure
+import { FileNoteRepository } from '../../infrastructure/adapters';
+
+export class NoteService {
+  constructor(private repo: FileNoteRepository) {} // Domain coupled to infrastructure!
+}
 ```
 
 ## Documentation Standards
