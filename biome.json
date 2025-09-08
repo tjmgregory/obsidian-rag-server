@@ -156,6 +156,16 @@
           }
         }
       }
+    },
+    {
+      "include": ["src/infrastructure/adapters/vector-store/vectra-adapter.ts"],
+      "linter": {
+        "rules": {
+          "complexity": {
+            "useLiteralKeys": "off"
+          }
+        }
+      }
     }
   ]
 }
