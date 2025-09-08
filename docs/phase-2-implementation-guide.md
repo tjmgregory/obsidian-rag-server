@@ -1,8 +1,25 @@
 # Phase 2 Implementation Guide - Semantic Search
 
+> **Status**: In Progress (~40% Complete)  
+> **Last Updated**: 2025-09-08 Evening  
+> **Next Steps**: Complete indexing pipeline, implement semantic search use case
+
 ## Overview
 
 Phase 2 transforms our keyword-based search into intelligent semantic search that understands meaning.
+
+### ✅ Completed
+- Embedding infrastructure with Transformers.js
+- Vector store with VectraJS
+- Smart markdown-aware chunking
+- All foundation tests passing
+
+### 📋 TODO
+- Indexing pipeline (drafted, not committed)
+- Semantic search use case
+- Hybrid search combining keyword + semantic
+- MCP integration
+- Performance optimization
 
 ## Architecture
 
@@ -41,7 +58,7 @@ Phase 2 transforms our keyword-based search into intelligent semantic search tha
 
 ### Step 1: Embedding Service Infrastructure
 
-#### 1.1 Create Embedding Port (Domain Layer)
+- [x] **1.1 Create Embedding Port (Domain Layer)**
 
 ```typescript
 // src/domain/ports/embedding-port.ts
@@ -63,7 +80,7 @@ export class Embedding {
 }
 ```
 
-#### 1.2 Implement Transformers.js Adapter
+- [x] **1.2 Implement Transformers.js Adapter**
 
 ```typescript
 // src/infrastructure/adapters/embedding/transformers-adapter.ts
@@ -87,7 +104,7 @@ export class TransformersEmbeddingAdapter implements EmbeddingPort {
 }
 ```
 
-#### 1.3 Create OpenAI Adapter (Future Option)
+- [ ] **1.3 Create OpenAI Adapter (Future Option)**
 
 ```typescript
 // src/infrastructure/adapters/embedding/openai-adapter.ts
@@ -99,7 +116,7 @@ export class OpenAIEmbeddingAdapter implements EmbeddingPort {
 
 ### Step 2: Smart Chunking System
 
-#### 2.1 Chunking Service
+- [x] **2.1 Chunking Service**
 
 ```typescript
 // src/domain/services/chunking-service.ts
@@ -132,7 +149,7 @@ export class DocumentChunk {
 }
 ```
 
-#### 2.2 Markdown-Aware Splitter
+- [x] **2.2 Markdown-Aware Splitter** (integrated into ChunkingService)
 
 ```typescript
 // src/infrastructure/utils/markdown-splitter.ts
@@ -151,7 +168,7 @@ export class MarkdownSplitter {
 
 ### Step 3: Vector Storage Layer
 
-#### 3.1 Vector Store Port
+- [x] **3.1 Vector Store Port**
 
 ```typescript
 // src/domain/ports/vector-store-port.ts
@@ -169,7 +186,7 @@ export interface SearchResult {
 }
 ```
 
-#### 3.2 VectraJS Implementation
+- [x] **3.2 VectraJS Implementation**
 
 ```typescript
 // src/infrastructure/adapters/vector-store/vectra-adapter.ts
@@ -203,7 +220,7 @@ export class VectraVectorStore implements VectorStorePort {
 }
 ```
 
-#### 3.3 SQLite Persistence
+- [ ] **3.3 SQLite Persistence** (VectraJS has built-in persistence)
 
 ```typescript
 // src/infrastructure/adapters/vector-store/sqlite-persistence.ts
@@ -216,7 +233,7 @@ export class SQLiteVectorPersistence {
 
 ### Step 4: Indexing Pipeline
 
-#### 4.1 Indexing Service
+- [ ] **4.1 Indexing Service**
 
 ```typescript
 // src/application/services/indexing-service.ts
@@ -243,7 +260,7 @@ export class IndexingService {
 }
 ```
 
-#### 4.2 Progress Tracking
+- [ ] **4.2 Progress Tracking**
 
 ```typescript
 // src/application/services/indexing-progress.ts
@@ -269,7 +286,7 @@ export class IndexingProgress extends EventEmitter {
 
 ### Step 5: Hybrid Search Implementation
 
-#### 5.1 Semantic Search UseCase
+- [ ] **5.1 Semantic Search UseCase**
 
 ```typescript
 // src/application/use-cases/semantic-search-use-case.ts
@@ -294,7 +311,7 @@ export class SemanticSearchUseCase {
 }
 ```
 
-#### 5.2 Hybrid Search Combiner
+- [ ] **5.2 Hybrid Search Combiner**
 
 ```typescript
 // src/application/use-cases/hybrid-search-use-case.ts
@@ -324,7 +341,7 @@ export class HybridSearchUseCase {
 
 ### Step 6: MCP Integration
 
-#### 6.1 Enhanced MCP Tools
+- [ ] **6.1 Enhanced MCP Tools**
 
 ```typescript
 // src/infrastructure/mcp/enhanced-tools.ts
@@ -346,7 +363,7 @@ export const SEMANTIC_SEARCH_TOOL = {
 };
 ```
 
-#### 6.2 Configuration
+- [ ] **6.2 Configuration**
 
 ```typescript
 // config.json additions
@@ -407,12 +424,12 @@ describe('Indexing Performance', () => {
 ## Rollout Plan
 
 ### Phase 2.1: Foundation (Week 1)
-- [ ] Embedding service with Transformers.js
-- [ ] Basic chunking (fixed-size)
-- [ ] Vector store setup
+- [x] Embedding service with Transformers.js
+- [x] Smart chunking (markdown-aware)
+- [x] Vector store setup
 
 ### Phase 2.2: Smart Features (Week 2)
-- [ ] Markdown-aware chunking
+- [x] Markdown-aware chunking (completed in Phase 2.1)
 - [ ] Incremental indexing
 - [ ] Progress tracking
 
