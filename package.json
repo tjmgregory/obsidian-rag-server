@@ -9,6 +9,8 @@
     "start": "bun run src/index.ts",
     "test": "bun test",
     "test:watch": "bun test --watch",
+    "test:integration": "bun test test/integration",
+    "benchmark": "bun test/benchmarks/vault-loading.benchmark.ts && bun test/benchmarks/search-performance.benchmark.ts",
     "typecheck": "bunx tsc --noEmit",
     "lint": "biome check .",
     "lint:fix": "biome check --apply .",
@@ -29,7 +31,9 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.17.0",
     "chokidar": "^3.6.0",
-    "gray-matter": "^4.0.3"
+    "cosmiconfig": "^9.0.0",
+    "gray-matter": "^4.0.3",
+    "zod": "^4.1.5"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.8.3",
